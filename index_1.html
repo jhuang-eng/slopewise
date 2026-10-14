@@ -1,0 +1,2067 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slopewise</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+/* ===================================================================
+   Design tokens
+   Layout: one narrow column. Each question is a worksheet card with
+   the prompt on the left and a graph-paper board on the right.
+   =================================================================== */
+
+:root {
+  /* surfaces and text */
+  --bg: #EBF0F5;
+  --paper: #FFFFFF;
+  --ink: #142033;
+  --muted: #56667C;
+  --line: #D2DBE5;
+
+  /* graph */
+  --grid: #DFE6EE;
+  --axis: #7A8AA0;
+
+  /* accent */
+  --accent: #1D58D0;
+  --accent-soft: #E2EAFB;
+  --on-accent: #FFFFFF;
+
+  /* right and wrong */
+  --good: #13804F;
+  --good-bg: #E1F3EA;
+  --bad: #BF3328;
+  --bad-bg: #FBE7E4;
+
+  /* type */
+  --f-display: "Bricolage Grotesque", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+/* dark palette for viewers whose system is set to dark */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E131A;
+    --paper: #161D27;
+    --ink: #E5ECF4;
+    --muted: #93A3B8;
+    --line: #2A3545;
+    --grid: #222C3A;
+    --axis: #7F91A8;
+    --accent: #6C9DFF;
+    --accent-soft: #1D2A44;
+    --on-accent: #0B1220;
+    --good: #4CC88C;
+    --good-bg: #14301F;
+    --bad: #FF7D70;
+    --bad-bg: #3A1A17;
+    color-scheme: dark;
+  }
+}
+
+/* same dark values again, so an explicit dark choice also wins */
+:root[data-theme="dark"] {
+  --bg: #0E131A;
+  --paper: #161D27;
+  --ink: #E5ECF4;
+  --muted: #93A3B8;
+  --line: #2A3545;
+  --grid: #222C3A;
+  --axis: #7F91A8;
+  --accent: #6C9DFF;
+  --accent-soft: #1D2A44;
+  --on-accent: #0B1220;
+  --good: #4CC88C;
+  --good-bg: #14301F;
+  --bad: #FF7D70;
+  --bad-bg: #3A1A17;
+  color-scheme: dark;
+}
+
+/* ===================================================================
+   Page frame
+   =================================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.wrap {
+  max-width: 780px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 18px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.brand {
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* progress pills: Check 1, Practice, Check 2, Results */
+.steps {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.steps li {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.steps li.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.steps li.done {
+  color: var(--ink);
+}
+
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ===================================================================
+   Type
+   =================================================================== */
+
+h1,
+h2 {
+  font-family: var(--f-display);
+  margin: 0;
+  text-wrap: balance;
+  letter-spacing: -0.015em;
+}
+
+h1 {
+  font-size: clamp(34px, 7vw, 52px);
+  line-height: 1.02;
+  font-weight: 800;
+}
+
+h2 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+p {
+  margin: 0;
+}
+
+.lede {
+  font-size: 19px;
+  max-width: 58ch;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 14px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* ===================================================================
+   Controls
+   =================================================================== */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn {
+  font: inherit;
+  font-weight: 700;
+  font-size: 16px;
+  border-radius: 10px;
+  padding: 11px 18px;
+  border: 1.5px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  min-height: 46px;
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--accent);
+}
+
+.btn.quiet {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible,
+.board:focus-visible,
+input:focus-visible,
+.link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ===================================================================
+   Question card
+   =================================================================== */
+
+.item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* marks a problem chosen to target the student's repeated mistake */
+.chip.focus {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.item-body {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* side by side once there is room; stacked on a phone */
+@media (min-width: 720px) {
+  .item-body.has-board {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+    align-items: start;
+  }
+}
+
+.prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.eq {
+  font-family: var(--f-mono);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.pts {
+  font-family: var(--f-mono);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* stacked fraction, e.g. the 3 over 4 in a slope */
+.frac {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  font-size: 0.68em;
+  line-height: 1.08;
+  margin: 0 0.08em;
+}
+
+.frac > span:first-child {
+  border-bottom: 2px solid currentColor;
+  padding: 0 0.2em;
+}
+
+.answer {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.answer label {
+  font-family: var(--f-mono);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+input[type="text"] {
+  font: 600 22px var(--f-mono);
+  width: 8ch;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.err {
+  color: var(--bad);
+  font-size: 15px;
+}
+
+/* ===================================================================
+   Graph board
+   The SVG uses one unit per grid square, with y negated so that
+   positive y points up the screen.
+   =================================================================== */
+
+.board {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1;
+  justify-self: center;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  touch-action: manipulation;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.board.static {
+  cursor: default;
+}
+
+.board svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* grid lines, and the two axes */
+.gl {
+  stroke: var(--grid);
+  stroke-width: 0.04;
+}
+
+.gl.ax {
+  stroke: var(--axis);
+  stroke-width: 0.07;
+}
+
+.lbl {
+  fill: var(--muted);
+  font-family: var(--f-mono);
+  font-size: 0.42px;
+}
+
+/* the student's line. turns red once it is marked wrong */
+.ul {
+  stroke: var(--accent);
+  stroke-width: 0.13;
+  stroke-linecap: round;
+}
+
+.ul.bad {
+  stroke: var(--bad);
+}
+
+/* the correct line, drawn dashed next to a wrong answer */
+.kl {
+  stroke: var(--good);
+  stroke-width: 0.11;
+  stroke-dasharray: 0.32 0.2;
+}
+
+.pt {
+  fill: var(--accent);
+}
+
+.pt.bad {
+  fill: var(--bad);
+}
+
+.pt.key {
+  fill: var(--good);
+}
+
+/* ghost dot that follows the mouse before a point is placed */
+.hov {
+  fill: var(--accent);
+  opacity: 0.25;
+}
+
+/* dashed rise-and-run triangle shown with a slope answer */
+.tri {
+  stroke: var(--muted);
+  stroke-width: 0.06;
+  stroke-dasharray: 0.2 0.14;
+  fill: none;
+}
+
+.tlbl {
+  fill: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 0.46px;
+  font-weight: 600;
+}
+
+/* ===================================================================
+   Feedback
+   =================================================================== */
+
+.fb {
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid transparent;
+}
+
+.fb.ok {
+  background: var(--good-bg);
+  border-color: var(--good);
+}
+
+.fb.no {
+  background: var(--bad-bg);
+  border-color: var(--bad);
+}
+
+.fb strong {
+  font-family: var(--f-display);
+  font-size: 19px;
+}
+
+.fb.ok strong {
+  color: var(--good);
+}
+
+.fb.no strong {
+  color: var(--bad);
+}
+
+/* the worked arithmetic under a slope answer */
+.work {
+  font-family: var(--f-mono);
+  font-size: 15px;
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.legend span::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+  height: 3px;
+  vertical-align: middle;
+  margin-right: 6px;
+  background: var(--accent);
+}
+
+.legend .lk::before {
+  background: var(--good);
+}
+
+.legend .lu.bad::before {
+  background: var(--bad);
+}
+
+/* ===================================================================
+   Start screen
+   =================================================================== */
+
+.plan {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.plan div {
+  border-top: 3px solid var(--accent);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.plan b {
+  font-family: var(--f-display);
+  font-size: 18px;
+}
+
+.demo {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  .demo {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
+    align-items: center;
+  }
+}
+
+.demo .board {
+  max-width: 260px;
+}
+
+/* ===================================================================
+   Results
+   =================================================================== */
+
+.scores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.score {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.score b {
+  font-family: var(--f-display);
+  font-size: clamp(30px, 8vw, 44px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* skill name, then the Check 1 and Check 2 marks for it */
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px 54px;
+  gap: 6px 10px;
+  align-items: center;
+  font-size: 15px;
+}
+
+.pair .h {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.mark {
+  font-weight: 700;
+  text-align: center;
+  border-radius: 6px;
+  padding: 2px 0;
+}
+
+.mark.y {
+  background: var(--good-bg);
+  color: var(--good);
+}
+
+.mark.n {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+/* bar chart of which mistakes came up during practice */
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 190px) minmax(0, 1fr) 28px;
+  gap: 10px;
+  align-items: center;
+  font-size: 15px;
+}
+
+.bar i {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--bad);
+}
+
+.bar span:last-child {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ===================================================================
+   Results log
+   =================================================================== */
+
+.tablewrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 560px;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+textarea {
+  width: 100%;
+  min-height: 120px;
+  font: 13px var(--f-mono);
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fb {
+    animation: pop 0.18s ease-out;
+  }
+
+  @keyframes pop {
+    from {
+      transform: translateY(4px);
+      opacity: 0.6;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 21 L21 3" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+        <path d="M8 16 H16 V8" stroke="var(--muted)" stroke-width="2" fill="none" stroke-dasharray="2 2"/>
+      </svg>
+      Slopewise
+    </div>
+    <ol class="steps" id="steps"></ol>
+  </header>
+  <main id="app"></main>
+</div>
+
+<script>
+/* ===================================================================
+   Slopewise
+   Practice for graphing linear equations, built around naming the
+   specific mistake behind a wrong answer.
+
+   The file is organized as:
+     1. Number helpers and display
+     2. Problem definitions and generators
+     3. Mistake diagnosis         <- the core of the app
+     4. Storage
+     5. Graph drawing
+     6. Session state and flow
+     7. Views
+     8. Event wiring
+   =================================================================== */
+
+
+/* ===================================================================
+   1. Number helpers and display
+   =================================================================== */
+
+const $ = selector => document.querySelector(selector);
+const app = $('#app');
+
+const EPS = 1e-9;
+
+// floating point comparison. graph answers are exact, so the default
+// tolerance is tiny; typed decimals get a looser one (see diagSlope)
+const near = (a, b, tolerance = EPS) => Math.abs(a - b) < tolerance;
+
+// random integer in [a, b], and a random element of an array
+const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = array => array[Math.floor(Math.random() * array.length)];
+
+function gcd(a, b) {
+  a = Math.abs(a);
+  b = Math.abs(b);
+  while (b) [a, b] = [b, a % b];
+  return a || 1;
+}
+
+// fractions are kept as {n, d} in lowest terms with the sign on top,
+// so that two equal slopes always have identical fields
+function frac(n, d = 1) {
+  if (d < 0) {
+    n = -n;
+    d = -d;
+  }
+  const g = gcd(n, d);
+  return { n: n / g, d: d / g };
+}
+
+const val = f => f.n / f.d;
+
+// minus sign for display, and parentheses around a negative so that
+// the worked arithmetic reads as 5 - (-2) rather than 5 - -2
+const neg = n => (n < 0 ? '−' + (-n) : String(n));
+const par = n => (n < 0 ? '(−' + (-n) + ')' : String(n));
+
+function fracHTML(f) {
+  if (f.d === 1) return neg(f.n);
+  return (f.n < 0 ? '−' : '') +
+    `<span class="frac"><span>${Math.abs(f.n)}</span><span>${f.d}</span></span>`;
+}
+
+// renders y = mx + b, dropping the 1 in 1x and folding in the signs
+function eqHTML(m, b) {
+  let s = 'y = ';
+
+  if (m.d === 1) {
+    if (m.n === 1) s += 'x';
+    else if (m.n === -1) s += '−x';
+    else s += neg(m.n) + 'x';
+  } else {
+    s += fracHTML(m) + 'x';
+  }
+
+  if (b) s += b > 0 ? ' + ' + b : ' − ' + (-b);
+  return s;
+}
+
+const mText = m => (m.d === 1 ? String(m.n) : `${m.n}/${m.d}`);
+
+// plain-text version of a problem, for the CSV log
+function promptText(item) {
+  if (item.type === 'graph') {
+    return `y = ${mText(item.m)}x ${item.b < 0 ? '- ' + -item.b : '+ ' + item.b}`;
+  }
+  return `(${item.p1}) and (${item.p2})`;
+}
+
+
+/* ===================================================================
+   2. Problem definitions and generators
+
+   Two problem types:
+     graph  - given y = mx + b, place two points on the line
+     slope  - given two points, type the slope
+
+   Tiers run 1 (integer slopes) to 3 (fractions and negatives).
+   =================================================================== */
+
+const G = (n, d, b, tier) => ({ type: 'graph', m: frac(n, d), b, tier });
+const S_ = (p1, p2, tier) => ({ type: 'slope', p1, p2, tier });
+
+// the two check forms. position i in Form A and position i in Form B
+// test the same skill at the same difficulty, so the two scores are
+// comparable. which form a student sees first is randomized
+const FORMS = {
+  A: [
+    G(2, 1, 1, 1),
+    G(-3, 1, 4, 2),
+    G(1, 2, -2, 3),
+    G(-2, 3, 1, 3),
+    S_([1, 2], [3, 8], 1),
+    S_([-2, 5], [2, -3], 2),
+    S_([-1, -4], [5, 0], 3)
+  ],
+  B: [
+    G(3, 1, -1, 1),
+    G(-2, 1, 3, 2),
+    G(1, 3, 2, 3),
+    G(-3, 2, -1, 3),
+    S_([2, 1], [4, 9], 1),
+    S_([-2, 7], [1, -2], 2),
+    S_([-4, -2], [2, 2], 3)
+  ]
+};
+
+// what each position in both forms is testing. used in the results table
+const SKILL = [
+  'Graph, positive slope',
+  'Graph, negative slope',
+  'Graph, fraction slope',
+  'Graph, negative fraction slope',
+  'Slope from points, positive',
+  'Slope from points, negative',
+  'Slope from points, fraction'
+];
+
+function genGraph(tier) {
+  if (tier === 1) {
+    return G(ri(1, 3), 1, ri(-3, 3), 1);
+  }
+
+  if (tier === 2) {
+    // weighted toward negative slopes, which is what this tier is for
+    const slope = pick([-3, -2, -1, -3, -2, 1, 2, 3]);
+    const intercept = ri(-4, 4) || pick([-2, 2]);
+    return G(slope, 1, intercept, 2);
+  }
+
+  // tier 3: a fraction slope in lowest terms
+  const d = pick([2, 3]);
+  let n;
+  do {
+    n = pick([-3, -2, -1, 1, 2, 3]);
+  } while (gcd(n, d) !== 1);
+
+  return G(n, d, ri(-3, 3), 3);
+}
+
+function genSlope(tier) {
+  for (;;) {
+    const x1 = ri(-4, 4);
+    const y1 = ri(-4, 4);
+    let dx, dy;
+
+    if (tier === 1) {
+      // positive whole-number slope
+      dx = ri(1, 3);
+      dy = dx * ri(1, 3);
+    } else if (tier === 2) {
+      // whole-number slope, either sign, points in either order
+      dx = ri(1, 3) * pick([1, -1]);
+      dy = dx * pick([-3, -2, -1, 2, 3]);
+    } else {
+      // tier 3: dy is deliberately not a multiple of dx, so the
+      // answer is a fraction
+      dx = pick([2, 3, 4, 6]) * pick([1, -1]);
+      do {
+        dy = ri(-6, 6);
+      } while (dy === 0 || dy % dx === 0);
+    }
+
+    const x2 = x1 + dx;
+    const y2 = y1 + dy;
+
+    // reject anything that runs off the readable part of the grid
+    if (Math.abs(x2) <= 8 && Math.abs(y2) <= 9) {
+      let p1 = [x1, y1];
+      let p2 = [x2, y2];
+
+      // above tier 1, sometimes list the points in reverse, so that
+      // subtraction order actually matters
+      if (tier > 1 && Math.random() < 0.5) [p1, p2] = [p2, p1];
+
+      return S_(p1, p2, tier);
+    }
+  }
+}
+
+
+/* ===================================================================
+   3. Mistake diagnosis
+
+   The idea: for each problem, work out the answer a student would
+   produce from each known mistake, then match their actual answer
+   against that list. A match names the mistake. No match falls back
+   to a generic response.
+   =================================================================== */
+
+/**
+ * candidate wrong lines for a graphing problem
+ * each entry is the line a student would draw after one mistake
+ * candidates equal to the correct line, or to each other, are dropped,
+ * so a correct answer is never reported as a mistake
+ */
+function graphCands(item) {
+  const m = val(item.m);
+  const b = item.b;
+  const raw = [];
+
+  // slope read as run over rise. meaningless when the slope is 1 or -1
+  if (!near(Math.abs(m), 1)) raw.push(['flip', 1 / m, b]);
+
+  // slope tilted the wrong way
+  raw.push(['sign', -m, b]);
+
+  // both at once
+  if (!near(Math.abs(m), 1)) raw.push(['negrecip', -1 / m, b]);
+
+  // the rest only make sense when there is an intercept to get wrong
+  if (b !== 0) {
+    raw.push(['swap', b, m]);          // m and b exchanged
+    raw.push(['bsign', m, -b]);        // intercept sign flipped
+    raw.push(['origin', m, 0]);        // started at the origin
+    raw.push(['xaxis', m, -m * b]);    // intercept put on the x-axis
+  }
+
+  const out = [];
+  for (const [id, cm, cb] of raw) {
+    if (near(cm, m) && near(cb, b)) continue;                       // same as correct
+    if (out.some(o => near(o.m, cm) && near(o.b, cb))) continue;    // duplicate
+    out.push({ id, m: cm, b: cb });
+  }
+  return out;
+}
+
+/** diagnoses the line through the two points the student placed */
+function diagGraph(item, points) {
+  const [p, q] = points;
+
+  // two points stacked vertically give no slope at all
+  if (p[0] === q[0]) return { ok: false, id: 'vertical' };
+
+  const m = (q[1] - p[1]) / (q[0] - p[0]);
+  const b = p[1] - m * p[0];
+  const correctM = val(item.m);
+
+  if (near(m, correctM) && near(b, item.b)) return { ok: true };
+
+  for (const c of graphCands(item)) {
+    if (near(c.m, m) && near(c.b, b)) return { ok: false, id: c.id };
+  }
+
+  // no named mistake matched. say which half was right
+  if (near(m, correctM)) return { ok: false, id: 'intoff' };
+  if (near(b, item.b)) return { ok: false, id: 'slopeoff' };
+  return { ok: false, id: 'other' };
+}
+
+/**
+ * candidate wrong values for a slope-from-two-points problem
+ * each entry is the number one mistake would produce
+ */
+function slopeCands(item) {
+  const [x1, y1] = item.p1;
+  const [x2, y2] = item.p2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const correct = dy / dx;
+  const raw = [];
+
+  if (dy !== 0) raw.push(['inv', dx / dy]);              // divided the wrong way
+  raw.push(['order', -correct]);                         // inconsistent subtraction order
+  raw.push(['nodiv', dy]);                               // found the rise, never divided
+  if (x1 + x2 !== 0) raw.push(['added', (y1 + y2) / (x1 + x2)]); // added instead of subtracted
+
+  const out = [];
+  for (const [id, v] of raw) {
+    if (near(v, correct)) continue;
+    if (out.some(o => near(o.v, v))) continue;
+    out.push({ id, v });
+  }
+  return out;
+}
+
+/**
+ * diagnoses a typed slope
+ * a decimal answer gets a looser tolerance, since a student rounding
+ * 2/3 to 0.67 by hand has the right idea
+ */
+function diagSlope(item, x, isDecimal) {
+  const tolerance = isDecimal ? 0.006 : EPS;
+  const correct = (item.p2[1] - item.p1[1]) / (item.p2[0] - item.p1[0]);
+
+  if (near(x, correct, tolerance)) return { ok: true };
+
+  for (const c of slopeCands(item)) {
+    if (near(x, c.v, tolerance)) return { ok: false, id: c.id };
+  }
+  return { ok: false, id: 'other' };
+}
+
+/** accepts "-3", "3/4", "0.75", and the various dash characters */
+function parseNum(s) {
+  s = s.replace(/[−–—]/g, '-').replace(/\s+/g, '');
+  if (!s) return null;
+
+  const fraction = s.match(/^(-?\d*\.?\d+)\/(-?\d*\.?\d+)$/);
+  if (fraction) {
+    const d = parseFloat(fraction[2]);
+    return d === 0 ? null : parseFloat(fraction[1]) / d;
+  }
+
+  return /^-?\d*\.?\d+$/.test(s) ? parseFloat(s) : null;
+}
+
+// what each diagnosis says to the student. the tip explains the fix,
+// in the words an 8th grader would use
+const MISTAKES = {
+  flip: {
+    label: 'Flipped slope',
+    tip: 'Your slope is upside down. Slope is rise over run: move up or down by the top number, then right by the bottom number.'
+  },
+  sign: {
+    label: 'Wrong direction',
+    tip: 'Your line tilts the wrong way. A negative slope goes down as you move right. A positive slope goes up.'
+  },
+  negrecip: {
+    label: 'Flipped and wrong direction',
+    tip: 'Your slope is upside down and tilts the wrong way. The top number is up or down, the bottom number is right, and the sign tells you up or down.'
+  },
+  swap: {
+    label: 'Mixed up m and b',
+    tip: 'In y = mx + b, the number next to x is the slope. The number by itself is where the line crosses the y-axis.'
+  },
+  bsign: {
+    label: 'Wrong sign on b',
+    tip: 'Check the sign of the number by itself. y = 2x − 3 crosses the y-axis at −3, below zero.'
+  },
+  origin: {
+    label: 'Skipped the starting point',
+    tip: 'Your line goes through (0, 0). Start at b on the y-axis first, then use the slope from there.'
+  },
+  xaxis: {
+    label: 'Started on the x-axis',
+    tip: 'b goes on the y-axis, the one that runs up and down. Your line starts on the x-axis instead.'
+  },
+  intoff: {
+    label: 'Right slope, wrong start',
+    tip: 'Your slope is correct. The line crosses the y-axis in the wrong place. Find b and start there.'
+  },
+  slopeoff: {
+    label: 'Right start, wrong slope',
+    tip: 'You started at the right spot. Count the rise and the run again.'
+  },
+  vertical: {
+    label: 'Points stacked up',
+    tip: 'Your two points are directly above each other. After moving up or down, move right by the bottom number of the slope.'
+  },
+  inv: {
+    label: 'Run over rise',
+    tip: 'You divided the wrong way. Slope is the change in y on top, divided by the change in x on the bottom.'
+  },
+  order: {
+    label: 'Subtraction order',
+    tip: 'Subtract in the same order on top and bottom: (y₂ − y₁) ÷ (x₂ − x₁). Mixing the order flips the sign.'
+  },
+  nodiv: {
+    label: 'Forgot to divide',
+    tip: 'You found the rise. Now divide it by the run, the change in x.'
+  },
+  added: {
+    label: 'Added instead of subtracted',
+    tip: 'Slope uses differences. Subtract the y-values and subtract the x-values.'
+  },
+  other: {
+    label: 'Not quite',
+    tip: 'Compare your answer with the correct one below and find where they split.'
+  },
+  blank: {
+    label: 'Skipped',
+    tip: ''
+  }
+};
+
+// which problem type can produce each mistake. used to pick targeted
+// practice: a graphing mistake needs a graphing problem to recur
+const GRAPH_IDS = new Set(['flip', 'sign', 'negrecip', 'swap', 'bsign', 'origin', 'xaxis']);
+const SLOPE_IDS = new Set(['inv', 'order', 'nodiv', 'added']);
+
+
+/* ===================================================================
+   4. Storage
+
+   Sessions are kept in this browser only. Nothing is sent anywhere.
+   Every read and write is guarded, because storage throws in private
+   windows and when site data is blocked.
+   =================================================================== */
+
+const STORE = 'slopewise.sessions.v1';
+
+function loadAll() {
+  try {
+    return JSON.parse(localStorage.getItem(STORE)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSession(session) {
+  try {
+    const all = loadAll();
+    const i = all.findIndex(s => s.id === session.id);
+    if (i >= 0) all[i] = session;
+    else all.push(session);
+    localStorage.setItem(STORE, JSON.stringify(all));
+  } catch (e) {
+    // storage unavailable. the session still runs, it just is not kept
+  }
+}
+
+function clearAll() {
+  try {
+    localStorage.removeItem(STORE);
+  } catch (e) {}
+}
+
+function toCSV(sessions) {
+  const rows = [[
+    'session', 'date', 'form_order', 'phase', 'n', 'type', 'tier',
+    'prompt', 'answer', 'correct', 'mistake', 'seconds'
+  ]];
+
+  for (const s of sessions) {
+    for (const e of s.log) {
+      rows.push([
+        s.id,
+        new Date(s.started).toISOString().slice(0, 10),
+        s.order,
+        e.phase,
+        e.n,
+        e.type,
+        e.tier,
+        e.prompt,
+        e.answer,
+        e.correct ? 1 : 0,
+        e.mistake || '',
+        (e.ms / 1000).toFixed(1)
+      ]);
+    }
+  }
+
+  return rows
+    .map(row => row.map(cell => {
+      cell = String(cell);
+      return /[",\n]/.test(cell) ? '"' + cell.replace(/"/g, '""') + '"' : cell;
+    }).join(','))
+    .join('\n');
+}
+
+function score(session, phase) {
+  const list = session.log.filter(e => e.phase === phase);
+  return { right: list.filter(e => e.correct).length, n: list.length, list };
+}
+
+
+/* ===================================================================
+   5. Graph drawing
+
+   One SVG unit is one grid square. Screen y is negated so that
+   positive y points up. The grid runs from -6 to 6.
+   =================================================================== */
+
+const N = 6;
+
+// drawn well past the edges, then clipped, so a steep line still
+// reaches the corners
+function lineSVG(m, b, className) {
+  return `<line class="${className}" x1="-8" y1="${-(m * -8 + b)}" x2="8" y2="${-(m * 8 + b)}"/>`;
+}
+
+/**
+ * builds the whole board
+ * opts: {id, key, user, pts, keyPts, hover, tri, bad, aria}
+ *   key    - the correct line, drawn dashed
+ *   user   - the student's line, or {vx} for a vertical one
+ *   pts    - the student's placed points
+ *   keyPts - two points on the correct line
+ *   hover  - ghost dot under the mouse
+ *   tri    - [[x1,y1],[x2,y2]] rise-and-run triangle
+ */
+function boardSVG(opts = {}) {
+  const id = opts.id || '';
+  const label = opts.aria || 'Coordinate grid from −6 to 6';
+
+  let s = `<svg viewBox="-6.9 -6.9 13.8 13.8" role="img" aria-label="${label}">` +
+    `<defs><clipPath id="clip${id}">` +
+    `<rect x="-6.4" y="-6.4" width="12.8" height="12.8"/>` +
+    `</clipPath></defs>`;
+
+  // grid lines, axes, and labels on every second line
+  for (let i = -N; i <= N; i++) {
+    const axis = i === 0 ? ' ax' : '';
+    s += `<line class="gl${axis}" x1="${i}" y1="${-N - 0.3}" x2="${i}" y2="${N + 0.3}"/>`;
+    s += `<line class="gl${axis}" x1="${-N - 0.3}" y1="${i}" x2="${N + 0.3}" y2="${i}"/>`;
+
+    if (i && i % 2 === 0) {
+      s += `<text class="lbl" x="${i}" y="0.62" text-anchor="middle">${neg(i)}</text>`;
+      s += `<text class="lbl" x="-0.25" y="${-i + 0.15}" text-anchor="end">${neg(i)}</text>`;
+    }
+  }
+
+  s += `<text class="lbl" x="6.55" y="-0.2">x</text>`;
+  s += `<text class="lbl" x="0.22" y="-6.45">y</text>`;
+
+  // lines are clipped to the grid; points and labels are not
+  s += `<g clip-path="url(#clip${id})">`;
+  if (opts.key) s += lineSVG(opts.key.m, opts.key.b, 'kl');
+  if (opts.user) {
+    s += opts.user.vx !== undefined
+      ? `<line class="ul ${opts.bad ? 'bad' : ''}" x1="${opts.user.vx}" y1="-8" x2="${opts.user.vx}" y2="8"/>`
+      : lineSVG(opts.user.m, opts.user.b, 'ul' + (opts.bad ? ' bad' : ''));
+  }
+  s += '</g>';
+
+  if (opts.tri) {
+    const [[x1, y1], [x2, y2]] = opts.tri;
+    s += `<path class="tri" d="M${x1} ${-y1} H${x2} V${-y2}"/>`;
+    s += `<text class="tlbl" x="${(x1 + x2) / 2}" y="${-y1 + (y2 > y1 ? 0.7 : -0.35)}" text-anchor="middle">run ${neg(x2 - x1)}</text>`;
+    s += `<text class="tlbl" x="${x2 + (x2 > x1 ? 0.25 : -0.25)}" y="${-(y1 + y2) / 2 + 0.15}" text-anchor="${x2 > x1 ? 'start' : 'end'}">rise ${neg(y2 - y1)}</text>`;
+  }
+
+  for (const p of opts.keyPts || []) {
+    s += `<circle class="pt key" cx="${p[0]}" cy="${-p[1]}" r="0.2"/>`;
+  }
+
+  if (opts.hover) {
+    s += `<circle class="hov" cx="${opts.hover[0]}" cy="${-opts.hover[1]}" r="0.34"/>`;
+  }
+
+  for (const p of opts.pts || []) {
+    s += `<circle class="pt ${opts.bad ? 'bad' : ''}" cx="${p[0]}" cy="${-p[1]}" r="0.23"/>`;
+  }
+
+  return s + '</svg>';
+}
+
+/** slope and intercept of the line through two placed points */
+function lineThrough([p, q]) {
+  if (p[0] === q[0]) return { vx: p[0] };
+  const m = (q[1] - p[1]) / (q[0] - p[0]);
+  return { m, b: p[1] - m * p[0] };
+}
+
+/**
+ * two lattice points on the correct line: the intercept, and one step
+ * of the slope from it. steps backwards if forwards runs off the grid
+ */
+function keyPoints(item) {
+  const b = item.b;
+  const { n, d } = item.m;
+  return Math.abs(b + n) <= N ? [[0, b], [d, b + n]] : [[0, b], [-d, b - n]];
+}
+
+
+/* ===================================================================
+   6. Session state and flow
+
+   Flow: start -> Check 1 (7 items) -> practice (>= 10) -> Check 2 -> results
+   =================================================================== */
+
+const PRACTICE_MIN = 10;
+
+let view = 'start';
+let S = null;          // the live session, or null on the start screen
+let copyBox = '';      // CSV textarea, shown after a copy
+let confirmClear = false;
+
+function newSession() {
+  const order = Math.random() < 0.5 ? 'AB' : 'BA';
+
+  S = {
+    session: {
+      id: 'S-' + Math.random().toString(36).slice(2, 6).toUpperCase(),
+      started: Date.now(),
+      order,
+      log: [],
+      done: false
+    },
+    phase: 'pre',
+    items: FORMS[order[0]],
+    idx: 0,
+    tier: { graph: 1, slope: 1 },
+    streak: { graph: 0, slope: 0 },
+    pcount: 0,
+    item: null,
+    pts: [],
+    answered: null,
+    t0: 0,
+    cursor: null,
+    focus: null,
+    inputErr: false
+  };
+
+  saveSession(S.session);
+  startItem();
+}
+
+/** the mistake made most often in practice, once it has happened twice */
+function topMistake() {
+  const counts = {};
+
+  for (const e of S.session.log) {
+    if (e.phase !== 'practice') continue;
+    if (!GRAPH_IDS.has(e.mistake) && !SLOPE_IDS.has(e.mistake)) continue;
+    counts[e.mistake] = (counts[e.mistake] || 0) + 1;
+  }
+
+  const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return best && best[1] >= 2 ? best[0] : null;
+}
+
+/**
+ * picks the next practice problem
+ * normally about two thirds graphing. once a mistake has come up
+ * twice, most problems are ones where that mistake is reachable
+ */
+function nextPractice() {
+  S.focus = topMistake();
+
+  let type = Math.random() < 0.65 ? 'graph' : 'slope';
+  const focusType = S.focus ? (GRAPH_IDS.has(S.focus) ? 'graph' : 'slope') : null;
+  if (focusType && Math.random() < 0.75) type = focusType;
+
+  const generate = () => (type === 'graph' ? genGraph(S.tier.graph) : genSlope(S.tier.slope));
+  let item = generate();
+
+  // retry until the focus mistake is actually possible on this problem
+  // capped so a rare combination cannot hang the loop
+  if (focusType === type) {
+    for (let i = 0; i < 40; i++) {
+      const cands = type === 'graph' ? graphCands(item) : slopeCands(item);
+      const reachable = cands.some(c => c.id === S.focus);
+
+      // 'sign' only means something when the real slope is negative
+      if (reachable && (S.focus !== 'sign' || val(item.m) < 0)) break;
+      item = generate();
+    }
+  }
+
+  item.targeted = focusType === type ? S.focus : null;
+  return item;
+}
+
+/** two right in a row moves up a tier; two wrong moves down */
+function adapt(type, ok) {
+  let s = S.streak[type];
+  s = ok ? (s > 0 ? s + 1 : 1) : (s < 0 ? s - 1 : -1);
+
+  if (s >= 2) {
+    S.tier[type] = Math.min(3, S.tier[type] + 1);
+    s = 0;
+  }
+  if (s <= -2) {
+    S.tier[type] = Math.max(1, S.tier[type] - 1);
+    s = 0;
+  }
+
+  S.streak[type] = s;
+}
+
+function startItem() {
+  S.item = S.phase === 'practice' ? nextPractice() : S.items[S.idx];
+  S.pts = [];
+  S.answered = null;
+  S.inputErr = false;
+  S.lastInput = '';
+  S.t0 = performance.now();
+
+  view = 'item';
+  render();
+
+  // focus the answer box on a desktop, but never on a phone, where it
+  // would throw up the keyboard over the graph
+  const target = $('#ans') || $('#board');
+  if (target && matchMedia('(pointer:fine)').matches) {
+    target.focus({ preventScroll: true });
+  }
+}
+
+function submit(skip) {
+  const item = S.item;
+  let result, answer;
+
+  if (skip) {
+    result = { ok: false, id: 'blank' };
+    answer = '';
+  } else if (item.type === 'graph') {
+    if (S.pts.length < 2) return;
+    result = diagGraph(item, S.pts);
+    answer = S.pts.map(p => `(${p[0]},${p[1]})`).join(' ');
+  } else {
+    const raw = $('#ans').value;
+    const x = parseNum(raw);
+
+    if (x === null) {
+      S.inputErr = true;
+      render();
+      $('#ans').focus();
+      return;
+    }
+
+    result = diagSlope(item, x, raw.includes('.'));
+    answer = raw.trim();
+    S.lastInput = raw.trim();
+  }
+
+  S.session.log.push({
+    phase: S.phase,
+    n: S.phase === 'practice' ? S.pcount + 1 : S.idx + 1,
+    type: item.type,
+    tier: item.tier,
+    prompt: promptText(item),
+    answer,
+    correct: !!result.ok,
+    mistake: result.ok ? '' : result.id,
+    ms: Math.round(performance.now() - S.t0)
+  });
+  saveSession(S.session);
+
+  // practice shows feedback and stays on the problem
+  if (S.phase === 'practice') {
+    S.pcount++;
+    adapt(item.type, result.ok);
+    S.answered = result;
+    render();
+    $('#next')?.focus({ preventScroll: true });
+    return;
+  }
+
+  // checks move straight on, with no feedback
+  S.idx++;
+  if (S.idx < S.items.length) return startItem();
+
+  if (S.phase === 'pre') {
+    view = 'break1';
+    S.phase = 'practice';
+  } else {
+    S.session.done = true;
+    saveSession(S.session);
+    view = 'results';
+  }
+
+  render();
+  window.scrollTo(0, 0);
+}
+
+/** check 2 always uses whichever form Check 1 did not */
+function goPost() {
+  S.phase = 'post';
+  S.items = FORMS[S.session.order[1]];
+  S.idx = 0;
+  view = 'break2';
+  render();
+  window.scrollTo(0, 0);
+}
+
+
+/* ===================================================================
+   7. Views
+
+   Each view returns an HTML string. render() swaps it in and rewires
+   the events. State lives in S, never in the DOM.
+   =================================================================== */
+
+function steps() {
+  const names = ['Check 1', 'Practice', 'Check 2', 'Results'];
+  let at;
+
+  if (view === 'results') at = 3;
+  else if (!S || view === 'start' || view === 'log') at = -1;
+  else if (S.phase === 'pre') at = 0;
+  else if (S.phase === 'practice') at = 1;
+  else at = 2;
+
+  $('#steps').innerHTML = at < 0
+    ? ''
+    : names.map((n, i) => `<li class="${i === at ? 'on' : i < at ? 'done' : ''}">${n}</li>`).join('');
+}
+
+function render() {
+  steps();
+  const views = {
+    start: vStart,
+    item: vItem,
+    break1: vBreak1,
+    break2: vBreak2,
+    results: vResults,
+    log: vLog
+  };
+  app.innerHTML = views[view]();
+  wire();
+}
+
+function vStart() {
+  const example = G(2, 1, 1, 1);
+
+  return `<section class="panel">
+    <h1>Graph a line.<br>Find out why it's wrong.</h1>
+    <p class="lede">Slopewise checks every line you draw. When it's off, it names the exact mistake, like a flipped slope or a sign error, and gives you more problems on that mistake until it sticks.</p>
+    <div class="demo">
+      <div class="fb no">
+        <span class="eyebrow">Example</span>
+        <span>Asked to graph <span class="eq" style="font-size:20px">${eqHTML(example.m, example.b)}</span>, a student drew the blue line.</span>
+        <strong>Flipped slope</strong>
+        <span>${MISTAKES.flip.tip}</span>
+        <div class="legend"><span class="lu bad">Student's line</span><span class="lk">Correct line</span></div>
+      </div>
+      <div class="board static">${boardSVG({
+        id: 'd',
+        key: { m: 2, b: 1 },
+        user: { m: 0.5, b: 1 },
+        pts: [[0, 1], [2, 2]],
+        bad: true,
+        aria: 'Example graph: correct line with slope 2 and a wrong line with slope one half'
+      })}</div>
+    </div>
+    <div class="plan">
+      <div><b>Check 1</b><span class="muted small">7 questions, no hints. Shows where you start.</span></div>
+      <div><b>Practice</b><span class="muted small">At least ${PRACTICE_MIN} problems with feedback. Gets harder as you improve.</span></div>
+      <div><b>Check 2</b><span class="muted small">7 new questions at the same difficulty as Check 1.</span></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="go">Start</button>
+      <span class="muted small">About 20 to 30 minutes. No names and no account. Answers stay on this device.</span>
+    </div>
+  </section>
+  <p class="small muted">Running a test with students? <button class="link" id="openlog">Open the results log</button></p>`;
+}
+
+function headLine() {
+  if (S.phase === 'practice') {
+    return `<span class="eyebrow">Practice · Problem ${S.pcount + (S.answered ? 0 : 1)}</span>`;
+  }
+  const name = S.phase === 'pre' ? 'Check 1' : 'Check 2';
+  return `<span class="eyebrow">${name} · Question ${S.idx + 1} of ${S.items.length}</span>`;
+}
+
+function vItem() {
+  const item = S.item;
+  const answered = S.answered;
+  const practice = S.phase === 'practice';
+
+  // practice shows the current level, and the focus mistake if there is one
+  let chips = '';
+  if (practice) {
+    const focusChip = item.targeted
+      ? `<span class="chip focus">Focus: ${MISTAKES[item.targeted].label}</span>`
+      : '';
+    chips = `<span class="row">${focusChip}<span class="chip">Level ${item.tier}</span></span>`;
+  }
+
+  let prompt, board = '', feedbackHTML = '', controls;
+
+  if (item.type === 'graph') {
+    prompt = `<p class="muted">Graph this line.</p>
+      <div class="eq">${eqHTML(item.m, item.b)}</div>
+      <p class="muted small">Tap two points that are on the line. Tap a point again to remove it.</p>`;
+
+    if (answered) {
+      const kp = keyPoints(item);
+      const userLine = lineThrough(S.pts);
+
+      board = boardSVG({
+        id: 'b',
+        key: answered.ok ? null : { m: val(item.m), b: item.b },
+        keyPts: answered.ok ? [] : kp,
+        user: userLine,
+        pts: S.pts,
+        bad: !answered.ok
+      });
+
+      const where = answered.ok
+        ? ''
+        : `Correct line passes through (${kp[0].join(', ').replace(/-/g, '−')}) and (${kp[1].join(', ').replace(/-/g, '−')}).`;
+
+      feedbackHTML = feedback(answered, where) + (answered.ok
+        ? ''
+        : `<div class="legend"><span class="lu bad">Your line</span><span class="lk">Correct line</span></div>`);
+    } else {
+      board = boardSVG({
+        id: 'b',
+        pts: S.pts,
+        user: S.pts.length === 2 ? lineThrough(S.pts) : null,
+        hover: S.cursor
+      });
+    }
+
+    controls = answered
+      ? nextControls()
+      : `<div class="row">
+          <button class="btn" id="check" ${S.pts.length < 2 ? 'disabled' : ''}>${practice ? 'Check answer' : 'Submit'}</button>
+          <button class="btn quiet" id="clear">Clear</button>
+          ${practice ? '' : '<button class="btn quiet" id="skip">Skip</button>'}
+        </div>`;
+  } else {
+    const [x1, y1] = item.p1;
+    const [x2, y2] = item.p2;
+
+    prompt = `<p class="muted">Find the slope of the line through these points.</p>
+      <div class="pts">(${neg(x1)}, ${neg(y1)}) and (${neg(x2)}, ${neg(y2)})</div>`;
+
+    if (answered) {
+      const correct = frac(y2 - y1, x2 - x1);
+
+      board = boardSVG({
+        id: 'b',
+        pts: [item.p1, item.p2],
+        user: lineThrough([item.p1, item.p2]),
+        tri: [item.p1, item.p2],
+        aria: 'The two points with the rise and run drawn'
+      });
+
+      const work = `<span class="work">(${neg(y2)} − ${par(y1)}) ÷ (${neg(x2)} − ${par(x1)}) = ${neg(y2 - y1)} ÷ ${neg(x2 - x1)} = </span>` +
+        `<span class="eq" style="font-size:20px">${fracHTML(correct)}</span>`;
+
+      feedbackHTML = feedback(answered, `<span>You wrote <b>${escapeHTML(S.lastInput || '')}</b>.</span>`, work);
+      controls = nextControls();
+    } else {
+      controls = `<div class="answer">
+          <label for="ans">m =</label>
+          <input type="text" id="ans" inputmode="text" autocomplete="off" placeholder="3/4" aria-describedby="anshint">
+          <button class="btn" id="check">${practice ? 'Check answer' : 'Submit'}</button>
+          ${practice ? '' : '<button class="btn quiet" id="skip">Skip</button>'}
+        </div>
+        <p class="small muted" id="anshint">Type a whole number or a fraction, like −2 or 3/4.</p>
+        ${S.inputErr ? '<p class="err" role="alert">Enter a number like 2, −3, or 3/4.</p>' : ''}`;
+    }
+  }
+
+  const hasBoard = !!board;
+  const boardStatic = answered || item.type === 'slope' ? 'static' : '';
+  const boardKeys = !answered && item.type === 'graph'
+    ? 'tabindex="0" aria-label="Graph. Use arrow keys to move, Enter to place a point."'
+    : '';
+
+  return `<section class="panel">
+    <div class="item-head">${headLine()}${chips}</div>
+    <div class="item-body ${hasBoard ? 'has-board' : ''}">
+      <div class="prompt">${prompt}${controls}${feedbackHTML}</div>
+      ${hasBoard ? `<div class="board ${boardStatic}" id="board" ${boardKeys}>${board}</div>` : ''}
+    </div>
+  </section>
+  ${practice && !answered ? `<p class="small muted">${S.pcount} of at least ${PRACTICE_MIN} practice problems done.</p>` : ''}`;
+}
+
+function feedback(result, extra, work) {
+  if (result.ok) {
+    return `<div class="fb ok" role="status">
+      <strong>Correct.</strong>${work ? `<div>${work}</div>` : ''}
+    </div>`;
+  }
+
+  const m = MISTAKES[result.id];
+  return `<div class="fb no" role="status">
+    <strong>${m.label}</strong>
+    <span>${m.tip}</span>
+    ${extra ? `<span class="small">${extra}</span>` : ''}
+    ${work ? `<div>${work}</div>` : ''}
+  </div>`;
+}
+
+function nextControls() {
+  const canFinish = S.pcount >= PRACTICE_MIN;
+  return `<div class="row">
+    <button class="btn" id="next">Next problem</button>
+    ${canFinish ? '<button class="btn ghost" id="topost">Go to Check 2</button>' : ''}
+  </div>`;
+}
+
+function vBreak1() {
+  return `<section class="panel">
+    <span class="eyebrow">Check 1 done</span>
+    <h2>Now practice.</h2>
+    <p class="lede">You'll get feedback after every problem. If you keep making the same mistake, Slopewise gives you more problems on it. Do at least ${PRACTICE_MIN}.</p>
+    <div class="row"><button class="btn" id="startpractice">Start practice</button></div>
+  </section>`;
+}
+
+function vBreak2() {
+  return `<section class="panel">
+    <span class="eyebrow">Practice done</span>
+    <h2>Last part: Check 2.</h2>
+    <p class="lede">Seven new questions, matched to Check 1. No hints, like before.</p>
+    <div class="row"><button class="btn" id="startpost">Start Check 2</button></div>
+  </section>`;
+}
+
+function vResults() {
+  const s = S.session;
+  const pre = score(s, 'pre');
+  const post = score(s, 'post');
+  const delta = post.right - pre.right;
+
+  const practice = s.log.filter(e => e.phase === 'practice');
+  const practiceRight = practice.filter(e => e.correct).length;
+
+  // mistake tally for the bar chart
+  const counts = {};
+  for (const e of practice) {
+    if (e.correct || e.mistake === 'blank') continue;
+    counts[e.mistake] = (counts[e.mistake] || 0) + 1;
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const max = sorted[0]?.[1] || 1;
+
+  // position i in Check 1 and Check 2 test the same skill
+  const pairs = SKILL.map((skill, i) => {
+    const a = pre.list[i];
+    const b = post.list[i];
+    return `<span>${skill}</span>
+      <span class="mark ${a?.correct ? 'y' : 'n'}">${a?.correct ? '✓' : '✗'}</span>
+      <span class="mark ${b?.correct ? 'y' : 'n'}">${b?.correct ? '✓' : '✗'}</span>`;
+  }).join('');
+
+  const minutes = Math.round(s.log.reduce((total, e) => total + e.ms, 0) / 60000);
+  const deltaColor = delta > 0 ? '--good' : delta < 0 ? '--bad' : '--ink';
+  const deltaSign = delta > 0 ? '+' : delta < 0 ? '−' : '';
+
+  return `<section class="panel">
+    <span class="eyebrow">Session ${s.id}</span>
+    <h2>Your results</h2>
+    <div class="scores">
+      <div class="score"><span class="muted small">Check 1</span><b>${pre.right}/${pre.n}</b></div>
+      <div class="score"><span class="muted small">Check 2</span><b>${post.right}/${post.n}</b></div>
+      <div class="score"><span class="muted small">Change</span><b style="color:var(${deltaColor})">${deltaSign}${Math.abs(delta)}</b></div>
+    </div>
+    <div class="pair">
+      <span class="h">Skill</span>
+      <span class="h" style="text-align:center">Check 1</span>
+      <span class="h" style="text-align:center">Check 2</span>
+      ${pairs}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Practice</h2>
+    <p>${practice.length} problems, ${practiceRight} correct (${practice.length ? Math.round(100 * practiceRight / practice.length) : 0}%). About ${minutes} minute${minutes === 1 ? '' : 's'} total.</p>
+    ${sorted.length ? `<p class="muted small">Mistakes during practice</p>
+      <div class="bars">${sorted.map(([id, n]) => `<div class="bar">
+        <span>${MISTAKES[id].label}</span>
+        <span><i style="width:${(100 * n / max).toFixed(0)}%"></i></span>
+        <span>${n}</span>
+      </div>`).join('')}</div>` : '<p class="muted">No mistakes during practice.</p>'}
+  </section>
+
+  <section class="panel">
+    <h2>Save this session</h2>
+    <p class="muted small">If someone is running a test, copy the results and send them over. They're also saved in this device's results log.</p>
+    <div class="row">
+      <button class="btn" id="copyone">Copy results</button>
+      <button class="btn ghost" id="again">Start a new session</button>
+      <button class="btn quiet" id="openlog">Results log</button>
+    </div>
+    ${copyBox}
+  </section>`;
+}
+
+function vLog() {
+  const all = loadAll();
+  const done = all.filter(s => s.done);
+
+  const mean = f => (done.length
+    ? (done.reduce((total, s) => total + f(s), 0) / done.length).toFixed(1)
+    : '–');
+
+  const rows = all.slice().reverse().map(s => {
+    const pre = score(s, 'pre');
+    const post = score(s, 'post');
+    const practice = s.log.filter(e => e.phase === 'practice');
+
+    const counts = {};
+    for (const e of practice) {
+      if (e.correct || e.mistake === 'blank') continue;
+      counts[e.mistake] = (counts[e.mistake] || 0) + 1;
+    }
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+
+    return `<tr>
+      <td>${s.id}</td>
+      <td>${new Date(s.started).toLocaleDateString()}</td>
+      <td>${s.order[0]} → ${s.order[1]}</td>
+      <td>${pre.right}/${pre.n}</td>
+      <td>${s.done ? post.right + '/' + post.n : 'not finished'}</td>
+      <td>${practice.length}</td>
+      <td>${top ? MISTAKES[top[0]].label + ' (' + top[1] + ')' : '–'}</td>
+    </tr>`;
+  }).join('');
+
+  return `<section class="panel">
+    <span class="eyebrow">For the organizer</span>
+    <h2>Results log</h2>
+    <p class="muted small">Every session run on this device. Each student gets Form A or Form B first at random, so a harder form can't fake an improvement.</p>
+    <div class="scores">
+      <div class="score"><span class="muted small">Finished sessions</span><b>${done.length}</b></div>
+      <div class="score"><span class="muted small">Avg Check 1</span><b>${mean(s => score(s, 'pre').right)}</b></div>
+      <div class="score"><span class="muted small">Avg Check 2</span><b>${mean(s => score(s, 'post').right)}</b></div>
+    </div>
+    ${all.length ? `<div class="tablewrap"><table>
+      <thead><tr>
+        <th>Session</th><th>Date</th><th>Forms</th>
+        <th>Check 1</th><th>Check 2</th><th>Practice</th><th>Top mistake</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>` : '<p class="muted">No sessions yet. They appear here after a student starts.</p>'}
+    <div class="row">
+      <button class="btn" id="copyall" ${all.length ? '' : 'disabled'}>Copy all as CSV</button>
+      <button class="btn quiet" id="back">Back</button>
+      ${all.length ? `<button class="btn quiet" id="clearlog">${confirmClear ? `Tap again to delete ${all.length} session${all.length === 1 ? '' : 's'}` : 'Clear log'}</button>` : ''}
+    </div>
+    ${copyBox}
+  </section>`;
+}
+
+function escapeHTML(s) {
+  return s.replace(/[&<>"]/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;'
+  })[c]);
+}
+
+
+/* ===================================================================
+   8. Event wiring
+
+   render() replaces the markup, so handlers are attached fresh each
+   time rather than delegated.
+   =================================================================== */
+
+/** copies text, falling back to a selectable textarea where the clipboard is blocked */
+function copyText(text, buttonId) {
+  copyBox = `<textarea id="copyout" readonly aria-label="Results as CSV">${escapeHTML(text)}</textarea>`;
+
+  const finish = ok => {
+    render();
+    const button = $('#' + buttonId);
+    if (button) button.textContent = ok ? 'Copied' : 'Select the text below and copy it';
+    if (!ok) {
+      const area = $('#copyout');
+      area.focus();
+      area.select();
+    }
+  };
+
+  try {
+    navigator.clipboard.writeText(text).then(() => finish(true), () => finish(false));
+  } catch (e) {
+    finish(false);
+  }
+}
+
+/** tapping an existing point removes it; a third tap starts over */
+function tapPoint(p) {
+  const i = S.pts.findIndex(q => q[0] === p[0] && q[1] === p[1]);
+
+  if (i >= 0) S.pts.splice(i, 1);
+  else if (S.pts.length < 2) S.pts.push(p);
+  else S.pts = [p];
+
+  render();
+}
+
+function wire() {
+  const on = (id, handler) => {
+    const el = $('#' + id);
+    if (el) el.onclick = handler;
+  };
+
+  on('go', () => { copyBox = ''; newSession(); });
+  on('openlog', () => { copyBox = ''; confirmClear = false; view = 'log'; render(); });
+  on('back', () => {
+    copyBox = '';
+    const midSession = S && !S.session.done && S.session.log.length;
+    view = midSession ? 'item' : 'start';
+    if (view === 'start') S = null;
+    render();
+  });
+
+  on('startpractice', startItem);
+  on('startpost', startItem);
+  on('check', () => submit(false));
+  on('skip', () => submit(true));
+  on('clear', () => { S.pts = []; render(); });
+  on('next', startItem);
+  on('topost', goPost);
+  on('again', () => { copyBox = ''; newSession(); });
+
+  on('copyone', () => copyText(toCSV([S.session]), 'copyone'));
+  on('copyall', () => copyText(toCSV(loadAll()), 'copyall'));
+  on('clearlog', () => {
+    if (confirmClear) {
+      clearAll();
+      confirmClear = false;
+      copyBox = '';
+    } else {
+      confirmClear = true;
+    }
+    render();
+  });
+
+  const ans = $('#ans');
+  if (ans) {
+    ans.onkeydown = e => {
+      if (e.key === 'Enter') submit(false);
+    };
+  }
+
+  // graph input: pointer and keyboard
+  const board = $('#board');
+  if (board && view === 'item' && S.item.type === 'graph' && !S.answered) {
+    // screen coordinates to grid coordinates, snapped and clamped
+    const toGrid = e => {
+      const svg = board.querySelector('svg');
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+
+      const c = pt.matrixTransform(svg.getScreenCTM().inverse());
+      const clamp = v => Math.max(-N, Math.min(N, Math.round(v))) || 0;
+      return [clamp(c.x), clamp(-c.y)];
+    };
+
+    board.onpointerup = e => {
+      if (e.button === 0) {
+        S.cursor = null;
+        tapPoint(toGrid(e));
+      }
+    };
+
+    // ghost dot under the mouse. redraws the SVG directly rather than
+    // calling render(), which would rebuild the page on every move
+    board.onpointermove = e => {
+      if (e.pointerType !== 'mouse') return;
+
+      const p = toGrid(e);
+      if (S.cursor && S.cursor[0] === p[0] && S.cursor[1] === p[1]) return;
+
+      S.cursor = p;
+      board.innerHTML = boardSVG({
+        id: 'b',
+        pts: S.pts,
+        user: S.pts.length === 2 ? lineThrough(S.pts) : null,
+        hover: S.cursor
+      });
+    };
+
+    board.onpointerleave = () => {
+      S.cursor = null;
+      board.innerHTML = boardSVG({
+        id: 'b',
+        pts: S.pts,
+        user: S.pts.length === 2 ? lineThrough(S.pts) : null
+      });
+    };
+
+    board.onkeydown = e => {
+      const move = {
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowUp: [0, 1],
+        ArrowDown: [0, -1]
+      }[e.key];
+
+      if (move) {
+        e.preventDefault();
+        const c = S.cursor || [0, 0];
+        S.cursor = [
+          Math.max(-N, Math.min(N, c[0] + move[0])),
+          Math.max(-N, Math.min(N, c[1] + move[1]))
+        ];
+        render();
+        $('#board').focus();
+      } else if ((e.key === 'Enter' || e.key === ' ') && S.cursor) {
+        e.preventDefault();
+        tapPoint(S.cursor);
+        $('#board').focus();
+      }
+    };
+  }
+}
+
+render();
+</script>
+</body>
+</html>
