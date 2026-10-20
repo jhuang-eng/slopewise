@@ -50,9 +50,17 @@ The session runs as pre-check, practice, post-check.
 - No feedback is shown during either check.
 - Every answer is logged with the problem, the response, the diagnosed mistake, and time taken. Exports as CSV.
 
+## Puzzles
+
+`puzzles.js` holds 72 original puzzles in 7 sets: lines, systems, inequalities and absolute value, quadratics, exponents and sequences, functions, and word problems. Each one names the idea it is built on and has a worked solution that opens once it is solved, or after two wrong tries. Answers are drawn on the grid, picked from choices, or typed and checked with the same parsers the topics use, so `3x + 2`, `2 + 3x`, and `f(x) = 3x + 2` all count. Solved puzzles are remembered in the browser.
+
 ## Running it
 
-Open `index.html` in a browser. No build step, no dependencies, no server.
+Open `index.html` in a browser. No build step, no dependencies
+
+# AI Usage
+
+This project was assisted by Anthropic's Opus model.
 
 ## Privacy
 

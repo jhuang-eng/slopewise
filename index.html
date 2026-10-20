@@ -552,6 +552,14 @@ input[type="text"] {
   color: var(--ink);
 }
 
+.math {
+  font-weight: 600;
+}
+
+.math sup {
+  font-size: 0.7em;
+}
+
 .err {
   color: var(--bad);
   font-size: 15px;
@@ -988,6 +996,51 @@ input.wide {
 .pchip[aria-current="true"] {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.psets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pset {
+  font: 600 14px var(--f-body);
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.pset-n {
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+.pset.solved {
+  border-color: var(--good);
+}
+
+.pset[aria-current="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.pset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pidea {
+  margin: 0 0 6px;
+}
+
+/* a curve drawn on a puzzle board, as a path rather than a line */
+path.gv {
+  fill: none;
 }
 
 /* ===================================================================
@@ -1480,6 +1533,8 @@ textarea {
 <script src="topics.js"></script>
 <!-- the tutor session: whiteboard, calculator, video, chat -->
 <script src="room.js"></script>
+<!-- the puzzle library -->
+<script src="puzzles.js"></script>
 
 <script>
 /* ===================================================================
@@ -1582,6 +1637,68 @@ function escapeHTML(s) {
     '>': '&gt;',
     '"': '&quot;'
   })[c]);
+}
+
+/**
+ * shows a typed answer the way it would be written by hand:
+ * x^2 as a raised 2, <= as ≤, - as a real minus, * as a dot, and a
+ * plain number over a number as a stacked fraction
+ */
+// superscript characters a plain text box can show
+const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '-': '⁻' };
+const SUP_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
+/**
+ * what a typed answer turns into inside the box: ^2 becomes ², a digit
+ * right after a raised digit is raised too (so ^10 becomes ¹⁰), and
+ * <= and >= become ≤ and ≥. a lone ^ stays until a digit follows it.
+ * the parsers in topics.js read the raised characters back as powers
+ */
+function prettyTyped(s) {
+  s = s.replace(/<=|=</g, '≤').replace(/>=|=>/g, '≥')
+    .replace(/\^\s*(-?\d)/g, (_, d) => [...d].map(c => SUP[c]).join(''));
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(new RegExp(`([${SUP_DIGITS}])(\\d)`, 'g'), (_, a, d) => a + SUP[d]);
+  } while (s !== prev);
+  return s;
+}
+
+// rewrites the box as the student types, keeping the cursor in place
+function prettyInput(el, onChange) {
+  const tidy = () => {
+    const v = el.value;
+    const pos = el.selectionStart;
+    const next = prettyTyped(v);
+    if (next !== v) {
+      const at = prettyTyped(v.slice(0, pos)).length;
+      el.value = next;
+      el.setSelectionRange(at, at);
+    }
+    onChange(el.value);
+  };
+  // phone keyboards compose words before committing them, so wait for that
+  el.oninput = e => { if (!e.isComposing) tidy(); };
+  el.addEventListener('compositionend', tidy);
+}
+
+function mathHTML(raw) {
+  let t = String(raw).trim()
+    .replace(/<=|=</g, '≤')
+    .replace(/>=|=>/g, '≥')
+    .replace(/!=/g, '≠');
+  t = escapeHTML(t)
+    // powers: x^2, x^-1, x^(n+1), x^n, also with a space after the caret
+    .replace(/\^\s*\(([^()]*)\)/g, '<sup>$1</sup>')
+    .replace(/\^\s*(-?\d+(?:\.\d+)?|[a-z])/gi, '<sup>$1</sup>')
+    // number/number as a stacked fraction, so 1/2x reads as ½x like the parser does,
+    // but 2x/3 stays as typed
+    .replace(/(^|[^\w.)])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d.(^])/g,
+      '$1<span class="frac"><span>$2</span><span>$3</span></span>')
+    .replace(/\*/g, '·')
+    .replace(/-/g, '−');
+  return t;
 }
 
 
@@ -2244,75 +2361,36 @@ const ALL_TOPICS = TOPICS.flatMap(u => u.items);
 
 const inlineEq = (m, b) => `<span class="eq-inline">${eqHTML(m, b)}</span>`;
 
-// original graphing puzzles, easiest first. each target is a line in
-// the same {m, b} shape as a graph problem, so the replay works on it
-const PUZZLES = [
-  {
-    id: 'stars',
-    title: 'Through both stars',
-    prompt: 'Draw the line that passes through both stars.',
-    stars: [[-4, -1], [2, 2]],
-    target: { m: frac(1, 2), b: 1 },
-    hint: 'Count the rise and run from one star to the other, then simplify the fraction.'
-  },
-  {
-    id: 'axes',
-    title: 'Hit both axes',
-    prompt: 'Draw the line that crosses the x-axis at 4 and the y-axis at −2.',
-    target: { m: frac(1, 2), b: -2 },
-    hint: 'Those two crossings are points you can plot: (4, 0) and (0, −2).'
-  },
-  {
-    id: 'parallel',
-    title: 'Parallel track',
-    prompt: `The gray line is ${inlineEq(frac(2), -1)}. Draw the line parallel to it that passes through the star.`,
-    given: { m: frac(2), b: -1 },
-    stars: [[1, 4]],
-    target: { m: frac(2), b: 2 },
-    hint: 'Parallel lines have the same slope. Start at the star and use a rise of 2 and a run of 1.'
-  },
-  {
-    id: 'perp',
-    title: 'Right angle',
-    prompt: `The gray line is ${inlineEq(frac(1, 2), 1)}. Draw the line perpendicular to it through the star.`,
-    given: { m: frac(1, 2), b: 1 },
-    stars: [[2, 2]],
-    target: { m: frac(-2), b: 6 },
-    hint: 'Perpendicular slopes are negative reciprocals. Flip 1/2 and change its sign.'
-  },
-  {
-    id: 'mirror',
-    title: 'Same start, new slope',
-    prompt: `The gray line is ${inlineEq(frac(2, 3), -2)}. Draw a line with the same y-intercept that passes through the star.`,
-    given: { m: frac(2, 3), b: -2 },
-    stars: [[3, -4]],
-    target: { m: frac(-2, 3), b: -2 },
-    hint: 'Both lines cross the y-axis at −2. Count from (0, −2) to the star.'
-  },
-  {
-    id: 'standard',
-    title: 'Unpack it',
-    prompt: 'Draw the line <span class="eq-inline">2x + 3y = 6</span>.',
-    target: { m: frac(-2, 3), b: 2 },
-    hint: 'Solve for y first. 3y = −2x + 6, then divide everything by 3.'
-  },
-  {
-    id: 'three',
-    title: 'Three in a row',
-    prompt: 'Three of these four stars sit on one line. Draw that line.',
-    stars: [[-3, -5], [0, -1], [3, 3], [2, 2]],
-    target: { m: frac(4, 3), b: -1 },
-    hint: 'Try pairs of stars. The right line lands exactly on a third star.'
-  },
-  {
-    id: 'wide',
-    title: 'Long way across',
-    prompt: 'Draw the line through both stars.',
-    stars: [[-5, 4], [5, -2]],
-    target: { m: frac(-3, 5), b: 1 },
-    hint: 'A rise of −6 over a run of 10 simplifies to −3/5. Look for where the line crosses the y-axis.'
+// the puzzle library lives in puzzles.js. PUZZLES is every puzzle in
+// order, each tagged with the index of its set
+const PUZZLE_SETS = typeof PUZZLE_DATA !== 'undefined' ? PUZZLE_DATA : [];
+
+// typed answers past plain numbers need the parsers in topics.js
+const puzzleUsable = pz =>
+  engineReady || ['line', 'point', 'choice', 'num'].includes(pz.kind);
+
+const PUZZLES = PUZZLE_SETS.flatMap((s, si) =>
+  s.puzzles.filter(puzzleUsable).map(pz => ({ ...pz, set: si }))
+);
+
+const PUZZLE_HINT = {
+  num: 'Type a number. Fractions like 3/4 work.',
+  list: 'Type every answer, separated by commas, like 2, −5.',
+  pair: 'Type the point as (x, y), like (2, −1).',
+  ineq: 'Type it like x > 3 or x <= −2.',
+  compound: 'Type it like −2 < x <= 3.',
+  expr: 'Type ^ for a power: x^2 turns into x² as you type.'
+};
+
+// a graph y = f(x) as an svg path, cut off well past the grid
+function curvePath(f) {
+  let d = '';
+  for (let x = -7.5; x <= 7.51; x += 0.1) {
+    const cy = Math.max(-20, Math.min(20, -f(x)));
+    d += (d ? ' L' : 'M') + x.toFixed(2) + ' ' + cy.toFixed(2);
   }
-];
+  return d;
+}
 
 
 /* ===================================================================
@@ -2667,20 +2745,69 @@ function topicDraw(st) {
 let solved = loadSolved();
 let P = null;
 
+const newPuzzleState = i => ({
+  idx: i, pts: [], cursor: null, result: null, attempts: 0, reveal: false,
+  raw: '', choice: null, inputErr: false,
+  maxPts: PUZZLES[i] && PUZZLES[i].kind === 'point' ? 1 : 2
+});
+
 function openPuzzle(i) {
-  P = { idx: i, pts: [], cursor: null, result: null, attempts: 0, reveal: false };
+  P = newPuzzleState(i);
   render();
+  const box = $('#pans');
+  if (box && matchMedia('(pointer:fine)').matches) box.focus({ preventScroll: true });
+}
+
+// jumping to a set opens its first unsolved puzzle
+function openPuzzleSet(si) {
+  const inSet = PUZZLES.map((pz, i) => [pz, i]).filter(([pz]) => pz.set === si);
+  if (!inSet.length) return;
+  const open = inSet.find(([pz]) => !solved.has(pz.id)) || inSet[0];
+  openPuzzle(open[1]);
+}
+
+// a typed answer may start with "y =" or "f(x) =", which the parsers don't expect
+function readPuzzleTyped(kind, raw) {
+  const text = kind === 'expr' ? raw.replace(/^\s*(f\s*\(\s*x\s*\)|y)\s*=/i, '') : raw;
+  if (engineReady) return ENGINE.parse(kind, text);
+  return kind === 'num' ? parseNum(text) : null;
+}
+
+function samePuzzleAnswer(kind, a, b) {
+  if (engineReady) return ENGINE.same(kind, a, b, 1e-6);
+  return near(a, b, 1e-6);
 }
 
 function checkPuzzle() {
-  if (P.pts.length < 2) return;
-
   const pz = PUZZLES[P.idx];
-  const line = lineThrough(P.pts);
-  const ok = line.vx === undefined &&
-    near(line.m, val(pz.target.m)) &&
-    near(line.b, pz.target.b);
+  let ok;
 
+  if (pz.kind === 'line') {
+    if (P.pts.length < 2) return;
+    const line = lineThrough(P.pts);
+    ok = line.vx === undefined &&
+      near(line.m, val(pz.answer.m)) &&
+      near(line.b, pz.answer.b);
+  } else if (pz.kind === 'point') {
+    if (P.pts.length < 1) return;
+    ok = P.pts[0][0] === pz.answer[0] && P.pts[0][1] === pz.answer[1];
+  } else if (pz.kind === 'choice') {
+    if (P.choice === null) return;
+    ok = P.choice === pz.answer;
+  } else {
+    const box = $('#pans');
+    if (box) P.raw = box.value;
+    const value = readPuzzleTyped(pz.kind, P.raw);
+    if (value === null || value === undefined) {
+      P.inputErr = true;
+      render();
+      $('#pans')?.focus();
+      return;
+    }
+    ok = samePuzzleAnswer(pz.kind, value, readPuzzleTyped(pz.kind, pz.answer));
+  }
+
+  P.inputErr = false;
   P.attempts++;
   P.result = ok ? 'ok' : 'no';
 
@@ -2689,6 +2816,7 @@ function checkPuzzle() {
     saveSolved(solved);
   }
   render();
+  $('#pnext')?.focus({ preventScroll: true });
 }
 
 // tutor.js and peerjs load from separate files. either can be missing,
@@ -2763,7 +2891,7 @@ function tutorError(type) {
 function render() {
   if (tab === 'practice') S = guided;
   else if (tab === 'topics') S = free;
-  if (!P) P = { idx: 0, pts: [], cursor: null, result: null, attempts: 0, reveal: false };
+  if (!P) P = newPuzzleState(0);
 
   $('#tabs').innerHTML = TABS.map(([id, name]) =>
     `<button class="tab" data-tab="${id}" ${id === tab ? 'aria-current="page"' : ''}>${name}</button>`
@@ -2826,7 +2954,7 @@ function vHome() {
     </button>
     <button class="card" data-go="puzzles">
       <b>Puzzles</b>
-      <span class="muted small">${PUZZLES.length} graphing puzzles: parallel and perpendicular lines, and lines hidden in a set of points.</span>
+      <span class="muted small">${PUZZLES.length} puzzles in ${PUZZLE_SETS.length} sets: lines, systems, inequalities, quadratics, exponents, functions, and word problems.</span>
     </button>
     <button class="card" data-go="tutor">
       <b>Tutor mode</b>
@@ -2922,7 +3050,7 @@ function vTopicItem() {
   let below = '';
 
   if (a) {
-    const typed = graphInput || f === 'choice' ? '' : `You wrote <b>${escapeHTML(TP.raw.trim())}</b>. `;
+    const typed = graphInput || f === 'choice' ? '' : `You wrote <b class="math">${mathHTML(TP.raw)}</b>. `;
     if (a.ok) {
       fb = `<div class="fb ok" role="status"><strong>Correct.</strong><span>${item.answerHTML}</span></div>`;
     } else {
@@ -2931,12 +3059,15 @@ function vTopicItem() {
         `<span class="small">${typed}The answer is ${item.answerHTML}.</span></div>`;
     }
 
+    // replay redraws the picture, so it only makes sense when there is one
+    const vis0 = item.after ? item.after(a) : null;
+    const hasPicture = !!(vis0 && (vis0.board || vis0.html));
     worked = `<div class="sub">
-        <div class="row" style="justify-content:space-between"><h3>Steps</h3><button class="link" id="replay">Replay</button></div>
+        <div class="row" style="justify-content:space-between"><h3>Steps</h3>${hasPicture ? '<button class="link" id="replay">Replay</button>' : ''}</div>
         <ol class="worked">${item.steps.map((s, i) => `<li class="step" style="--i:${i}">${s}</li>`).join('')}</ol>
       </div>`;
 
-    const vis = item.after ? item.after(a) : null;
+    const vis = vis0;
     if (vis && vis.board) {
       const opts = { ...vis.board };
       // show what the student did next to the replay
@@ -3102,7 +3233,7 @@ function vItem() {
 
       feedbackHTML = feedback(
         answered,
-        `<span>You wrote <b>${escapeHTML(S.lastInput || '')}</b>. <button class="link" id="replay">Replay the steps</button></span>`,
+        `<span>You wrote <b class="math">${mathHTML(S.lastInput || '')}</b>. <button class="link" id="replay">Replay the steps</button></span>`,
         work
       );
       controls = nextControls();
@@ -3326,68 +3457,151 @@ function vLog() {
 // the puzzle board, also used to redraw on hover
 function puzzleDraw(st) {
   const pz = PUZZLES[st.idx];
-  const kp = keyPoints(pz.target);
-
-  return boardSVG({
+  const bd = pz.board || {};
+  const done = st.result === 'ok' || st.reveal;
+  const opts = {
     id: 'p',
-    given: pz.given ? { m: val(pz.given.m), b: pz.given.b } : null,
-    stars: pz.stars || [],
+    given: bd.given || null,
+    lines: bd.lines || [],
+    stars: bd.stars || [],
     pts: st.pts,
-    user: st.pts.length === 2 ? lineThrough(st.pts) : null,
     bad: st.result === 'no',
     win: st.result === 'ok',
     hover: st.cursor,
-    explain: st.reveal ? { p: kp[0], q: kp[1], startLabel: `b = ${neg(pz.target.b)}` } : null,
+    paths: [],
+    dots: [],
     aria: 'Puzzle graph'
-  });
+  };
+
+  // the curve stays hidden until the end, since seeing it gives the answer away
+  if (pz.curve && done) opts.paths.push({ d: curvePath(pz.curve), cls: 'gv curve draw', i: 0 });
+
+  if (pz.kind === 'line') {
+    if (st.pts.length === 2) opts.user = lineThrough(st.pts);
+    if (st.reveal) {
+      const kp = keyPoints(pz.answer);
+      opts.explain = { p: kp[0], q: kp[1], startLabel: `b = ${neg(pz.answer.b)}` };
+    }
+  } else if (pz.kind === 'point' && st.reveal) {
+    opts.dots.push(
+      { p: pz.answer, cls: 'ex-ring step', r: 0.55, i: 1 },
+      { p: pz.answer, cls: 'ex-pt step', r: 0.24, i: 1 }
+    );
+  }
+
+  return boardSVG(opts);
 }
 
+const onGrid = pz => pz.kind === 'line' || pz.kind === 'point' || !!pz.board;
+
 function vPuzzles() {
+  if (!PUZZLES.length) {
+    return `<section class="panel"><span class="eyebrow">Puzzles</span>
+      <div class="fb no"><strong>The puzzles couldn't load</strong>
+        <span>Check your connection and reload the page.</span></div>
+    </section>`;
+  }
+
   const pz = PUZZLES[P.idx];
+  const set = PUZZLE_SETS[pz.set];
   const done = P.result === 'ok';
   const locked = done || P.reveal;
+  const tapped = pz.kind === 'line' || pz.kind === 'point';
+  const typed = !tapped && pz.kind !== 'choice';
   const solvedCount = PUZZLES.filter(q => solved.has(q.id)).length;
 
-  const chips = PUZZLES.map((q, i) => {
-    const isSolved = solved.has(q.id);
-    return `<button class="pchip ${isSolved ? 'solved' : ''}" data-puzzle="${i}" aria-current="${i === P.idx}" ` +
-      `aria-label="Puzzle ${i + 1}${isSolved ? ', solved' : ''}">${i + 1}</button>`;
+  // one pill per set, with its progress
+  const sets = PUZZLE_SETS.map((s, si) => {
+    const mine = PUZZLES.filter(q => q.set === si);
+    if (!mine.length) return '';
+    const n = mine.filter(q => solved.has(q.id)).length;
+    const full = n === mine.length ? ' solved' : '';
+    return `<button class="pset${full}" data-pset="${si}" aria-current="${si === pz.set}">` +
+      `${s.title} <span class="pset-n">${n}/${mine.length}</span></button>`;
   }).join('');
 
-  let fb = '';
-  if (done) {
-    fb = `<div class="fb ok" role="status"><strong>Solved.</strong><span>${P.attempts === 1 ? 'First try.' : `Solved in ${P.attempts} tries.`}</span></div>`;
-  } else if (P.result === 'no') {
-    fb = `<div class="fb no" role="status"><strong>Not that line.</strong><span>${pz.hint}</span></div>`;
-  }
-  if (P.reveal) {
-    fb += `<div class="fb ok" role="status"><strong>One way to draw it</strong>` +
-      `<span>Start where the line crosses the y-axis, then rise and run to the next point. <button class="link" id="replay">Replay</button></span></div>`;
+  // numbered chips for the puzzles in this set
+  const inSet = PUZZLES.map((q, i) => [q, i]).filter(([q]) => q.set === pz.set);
+  const pos = inSet.findIndex(([, i]) => i === P.idx);
+  const chips = inSet.map(([q, i], k) => {
+    const isSolved = solved.has(q.id);
+    return `<button class="pchip ${isSolved ? 'solved' : ''}" data-puzzle="${i}" aria-current="${i === P.idx}" ` +
+      `aria-label="${set.title} puzzle ${k + 1}${isSolved ? ', solved' : ''}">${k + 1}</button>`;
+  }).join('');
+
+  // the answer input depends on the kind of puzzle
+  let input = '';
+  if (pz.kind === 'choice') {
+    input = `<div class="choices">${pz.choices.map((c, i) => {
+      let cls = '';
+      if (locked && i === pz.answer) cls = ' right';
+      else if (P.result && i === P.choice) cls = done ? ' right' : ' wrong';
+      return `<button class="choice${cls}" data-pchoice="${i}" aria-pressed="${P.choice === i}" ${locked ? 'disabled' : ''}>${c}</button>`;
+    }).join('')}</div>`;
+  } else if (tapped && !locked) {
+    input = `<p class="muted small">${pz.kind === 'point'
+      ? 'Tap one point on the grid. Tap again to move it.'
+      : 'Tap two points on your line. Tap a point again to remove it.'}</p>`;
+  } else if (typed && !locked) {
+    input = `<input type="text" id="pans" class="wide" autocomplete="off" autocapitalize="off" spellcheck="false" ` +
+      `value="${escapeHTML(P.raw)}" aria-label="Your answer" aria-describedby="phint">
+      <p class="small muted" id="phint">${PUZZLE_HINT[pz.kind]}</p>
+      ${P.inputErr ? `<p class="err" role="alert">That answer couldn't be read. ${PUZZLE_HINT[pz.kind]}</p>` : ''}`;
   }
 
+  const ready = pz.kind === 'line' ? P.pts.length === 2
+    : pz.kind === 'point' ? P.pts.length === 1
+    : pz.kind === 'choice' ? P.choice !== null
+    : true;
+
+  const nextLabel = pos === inSet.length - 1 ? 'Next set' : 'Next puzzle';
   const controls = locked
-    ? `<div class="row"><button class="btn" id="pnext">Next puzzle</button></div>`
+    ? `<div class="row"><button class="btn" id="pnext">${nextLabel}</button></div>`
     : `<div class="row">
-        <button class="btn" id="pcheck" ${P.pts.length < 2 ? 'disabled' : ''}>Check</button>
-        <button class="btn quiet" id="pclear">Clear</button>
+        <button class="btn" id="pcheck" ${ready ? '' : 'disabled'}>Check</button>
+        ${tapped ? '<button class="btn quiet" id="pclear">Clear</button>' : ''}
         ${P.attempts >= 2 ? '<button class="btn quiet" id="preveal">Show solution</button>' : ''}
       </div>`;
 
+  const steps = `<div class="sub">
+      <div class="row" style="justify-content:space-between"><h3>How it works</h3>${onGrid(pz) ? '<button class="link" id="replay">Replay</button>' : ''}</div>
+      <p class="pidea"><b>Key idea:</b> ${pz.idea}</p>
+      <ol class="worked">${pz.steps.map((x, i) => `<li class="step" style="--i:${i}">${x}</li>`).join('')}</ol>
+    </div>`;
+
+  let fb = '';
+  if (done) {
+    fb = `<div class="fb ok" role="status"><strong>Solved.</strong><span>${P.attempts === 1 ? 'First try.' : `Solved in ${P.attempts} tries.`}${pz.show ? ` The answer is ${pz.show}.` : ''}</span></div>`;
+  } else if (P.reveal) {
+    fb = `<div class="fb ok" role="status"><strong>Solution</strong><span>${pz.show ? `The answer is ${pz.show}.` : pz.kind === 'point' ? `The point is (${neg(pz.answer[0])}, ${neg(pz.answer[1])}), circled on the grid.` : 'The correct line is drawn on the grid.'}</span></div>`;
+  } else if (P.result === 'no') {
+    const typedNote = typed ? `You wrote <b class="math">${mathHTML(P.raw)}</b>. ` : '';
+    fb = `<div class="fb no" role="status"><strong>Not yet.</strong><span>${typedNote}${pz.hint}</span></div>`;
+  }
+
+  const board = onGrid(pz)
+    ? `<div class="board ${locked || !tapped ? 'static' : ''}" id="pboard" ${locked || !tapped ? '' : 'tabindex="0" aria-label="Puzzle graph. Use arrow keys to move, Enter to place a point."'}>${puzzleDraw(P)}</div>`
+    : '';
+
   return `<section class="panel">
     <div class="item-head">
-      <span class="eyebrow">Puzzle ${P.idx + 1} of ${PUZZLES.length}</span>
+      <span class="eyebrow">Puzzles</span>
       <span class="chip">${solvedCount} of ${PUZZLES.length} solved</span>
     </div>
+    <div class="psets" role="group" aria-label="Choose a puzzle set">${sets}</div>
+    <p class="muted small">${set.blurb}</p>
     <div class="pchips" role="group" aria-label="Choose a puzzle">${chips}</div>
-    <div class="item-body has-board">
+    <div class="item-body ${board ? 'has-board' : ''}">
       <div class="prompt">
+        <span class="eyebrow">${set.title} · ${pos + 1} of ${inSet.length}</span>
         <h2>${pz.title}</h2>
         <p>${pz.prompt}</p>
-        <p class="muted small">Tap two points on your line.</p>
+        ${input}
         ${controls}${fb}
       </div>
-      <div class="board ${locked ? 'static' : ''}" id="pboard" ${locked ? '' : 'tabindex="0" aria-label="Puzzle graph. Use arrow keys to move, Enter to place a point."'}>${puzzleDraw(P)}</div>
+      ${board}
     </div>
+    ${locked ? steps : ''}
   </section>`;
 }
 
@@ -3625,6 +3839,20 @@ function wire() {
   on('pclear', () => { P.pts = []; P.result = null; render(); });
   on('preveal', () => { P.reveal = true; render(); });
   on('pnext', () => openPuzzle((P.idx + 1) % PUZZLES.length));
+  each('[data-pset]', el => openPuzzleSet(+el.dataset.pset));
+  each('[data-pchoice]', el => {
+    if (P.result === 'ok' || P.reveal) return;
+    P.choice = +el.dataset.pchoice;
+    P.result = null;
+    render();
+  });
+
+  const pans = $('#pans');
+  if (pans) {
+    prettyInput(pans, v => { P.raw = v; });
+    // preventDefault stops the same Enter from clicking the button that gets focus next
+    pans.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); checkPuzzle(); } };
+  }
 
   // topic engine practice
   on('tcheck', submitTopic);
@@ -3640,8 +3868,8 @@ function wire() {
 
   const tans = $('#tans');
   if (tans) {
-    tans.oninput = () => { TP.raw = tans.value; };
-    tans.onkeydown = e => { if (e.key === 'Enter') submitTopic(); };
+    prettyInput(tans, v => { TP.raw = v; });
+    tans.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submitTopic(); } };
   }
 
   // tutor
@@ -3658,7 +3886,7 @@ function wire() {
   const ans = $('#ans');
   if (ans) {
     ans.onkeydown = e => {
-      if (e.key === 'Enter') submit(false);
+      if (e.key === 'Enter') { e.preventDefault(); submit(false); }
     };
   }
 
@@ -3669,7 +3897,8 @@ function wire() {
   }
 
   const pboard = $('#pboard');
-  if (pboard && P.result !== 'ok' && !P.reveal) {
+  const pkind = P && PUZZLES[P.idx] ? PUZZLES[P.idx].kind : '';
+  if (pboard && (pkind === 'line' || pkind === 'point') && P.result !== 'ok' && !P.reveal) {
     attachBoard(pboard, P, puzzleDraw);
   }
 

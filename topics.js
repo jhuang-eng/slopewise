@@ -174,8 +174,8 @@ const ENGINE = (() => {
     s = s.toLowerCase()
       .replace(/[−–—]/g, '-')
       .replace(/[×·]/g, '*')
-      .replace(/²/g, '^2')
-      .replace(/³/g, '^3')
+      // raised characters typed or pasted in, like x² or x⁻¹
+      .replace(/[⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, m => '^' + [...m].map(c => '⁻⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c) === 0 ? '-' : '⁻⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c) - 1).join(''))
       .replace(/\s+/g, '')
       .replace(/^(y|f\(x\))=/, '');
 
@@ -553,7 +553,7 @@ const ENGINE = (() => {
     pair: 'Type the point as (x, y), like (2, −1).',
     ineq: 'Type it like x > 3 or x <= −2.',
     compound: 'Type it like −2 < x <= 3.',
-    expr: 'Use ^ for powers, like 3x^2 − 5x + 1.',
+    expr: 'Type ^ for a power: x^2 turns into x² as you type.',
     linear: 'Type it like y = 2x − 3. Fractions like 1/2x work.',
     factored: 'Type the factors, like (x + 2)(x − 5).'
   };
