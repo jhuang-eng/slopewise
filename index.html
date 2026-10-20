@@ -1,0 +1,3697 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slopewise</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+/* ===================================================================
+   design tokens
+   layout: one narrow column under a row of tabs. each question is a
+   worksheet card with the prompt on the left and a graph-paper board
+   on the right
+   =================================================================== */
+
+:root {
+  /* surfaces and text */
+  --bg: #EBF0F5;
+  --paper: #FFFFFF;
+  --ink: #142033;
+  --muted: #56667C;
+  --line: #D2DBE5;
+
+  /* graph */
+  --grid: #DFE6EE;
+  --axis: #7A8AA0;
+  --star: #B7791F;
+  --tile: #101826;
+  --tile-label: rgba(0, 0, 0, 0.5);
+  --on-tile: #FFFFFF;
+
+  /* accent */
+  --accent: #1D58D0;
+  --accent-soft: #E2EAFB;
+  --on-accent: #FFFFFF;
+
+  /* right and wrong */
+  --good: #13804F;
+  --good-bg: #E1F3EA;
+  --bad: #BF3328;
+  --bad-bg: #FBE7E4;
+
+  /* type */
+  --f-display: "Bricolage Grotesque", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+/* dark palette for viewers whose system is set to dark */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E131A;
+    --paper: #161D27;
+    --ink: #E5ECF4;
+    --muted: #93A3B8;
+    --line: #2A3545;
+    --grid: #222C3A;
+    --axis: #7F91A8;
+    --star: #F0B54A;
+    --tile: #0A0F16;
+    --tile-label: rgba(0, 0, 0, 0.5);
+    --on-tile: #FFFFFF;
+    --accent: #6C9DFF;
+    --accent-soft: #1D2A44;
+    --on-accent: #0B1220;
+    --good: #4CC88C;
+    --good-bg: #14301F;
+    --bad: #FF7D70;
+    --bad-bg: #3A1A17;
+    color-scheme: dark;
+  }
+}
+
+/* same dark values again, so an explicit dark choice also wins */
+:root[data-theme="dark"] {
+  --bg: #0E131A;
+  --paper: #161D27;
+  --ink: #E5ECF4;
+  --muted: #93A3B8;
+  --line: #2A3545;
+  --grid: #222C3A;
+  --axis: #7F91A8;
+  --star: #F0B54A;
+  --tile: #0A0F16;
+  --tile-label: rgba(0, 0, 0, 0.5);
+  --on-tile: #FFFFFF;
+  --accent: #6C9DFF;
+  --accent-soft: #1D2A44;
+  --on-accent: #0B1220;
+  --good: #4CC88C;
+  --good-bg: #14301F;
+  --bad: #FF7D70;
+  --bad-bg: #3A1A17;
+  color-scheme: dark;
+}
+
+/* ===================================================================
+   page frame
+   =================================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+/* anything with the hidden attribute stays hidden, even if a class
+   gives it a display value */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.wrap {
+  max-width: 780px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 18px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.brand {
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* the tab row scrolls sideways on a phone instead of wrapping */
+.tabs {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  padding: 10px 12px;
+  min-height: 44px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tab[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.tab:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* progress pills: check 1, practice, check 2, results */
+.steps {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.steps li {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.steps li.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.steps li.done {
+  color: var(--ink);
+}
+
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ===================================================================
+   type
+   =================================================================== */
+
+h1,
+h2,
+h3 {
+  font-family: var(--f-display);
+  margin: 0;
+  text-wrap: balance;
+  letter-spacing: -0.015em;
+}
+
+h1 {
+  font-size: clamp(34px, 7vw, 52px);
+  line-height: 1.02;
+  font-weight: 800;
+}
+
+h2 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+p {
+  margin: 0;
+}
+
+.lede {
+  font-size: 19px;
+  max-width: 58ch;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 14px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.eq-inline {
+  font-family: var(--f-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ===================================================================
+   controls
+   =================================================================== */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn {
+  font: inherit;
+  font-weight: 700;
+  font-size: 16px;
+  border-radius: 10px;
+  padding: 11px 18px;
+  border: 1.5px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  min-height: 46px;
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--accent);
+}
+
+.btn.quiet {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible,
+.board:focus-visible,
+input:focus-visible,
+.link:focus-visible,
+.card:focus-visible,
+.topic:focus-visible,
+.pchip:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ===================================================================
+   home
+   =================================================================== */
+
+.demo {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  .demo {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
+    align-items: center;
+  }
+}
+
+.demo .board {
+  max-width: 280px;
+}
+
+.cards {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.card,
+.topic {
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.card:hover,
+.topic:hover {
+  border-color: var(--accent);
+}
+
+.card b,
+.topic b {
+  font-family: var(--f-display);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+/* ===================================================================
+   topics
+   =================================================================== */
+
+.unit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.topic-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.topic.planned {
+  cursor: default;
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.topic.planned:hover {
+  border-color: var(--line);
+}
+
+/* ===================================================================
+   question card
+   =================================================================== */
+
+.item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  align-self: flex-start;
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* marks a problem chosen to target the student's repeated mistake */
+.chip.focus {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.chip.ready {
+  background: var(--good-bg);
+  color: var(--good);
+}
+
+.chip.planned {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.item-body {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* side by side once there is room, stacked on a phone */
+@media (min-width: 720px) {
+  .item-body.has-board {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+    align-items: start;
+  }
+}
+
+.prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.eq {
+  font-family: var(--f-mono);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.pts {
+  font-family: var(--f-mono);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* stacked fraction, e.g. the 3 over 4 in a slope */
+.frac {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  font-size: 0.68em;
+  line-height: 1.08;
+  margin: 0 0.08em;
+}
+
+.frac > span:first-child {
+  border-bottom: 2px solid currentColor;
+  padding: 0 0.2em;
+}
+
+.answer {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.answer label {
+  font-family: var(--f-mono);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+input[type="text"] {
+  font: 600 22px var(--f-mono);
+  width: 8ch;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.err {
+  color: var(--bad);
+  font-size: 15px;
+}
+
+/* ===================================================================
+   graph board
+   the svg uses one unit per grid square, with y negated so that
+   positive y points up the screen
+   =================================================================== */
+
+.board {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1;
+  justify-self: center;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  touch-action: manipulation;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.board.static {
+  cursor: default;
+}
+
+.board svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* grid lines, and the two axes */
+.gl {
+  stroke: var(--grid);
+  stroke-width: 0.04;
+}
+
+.gl.ax {
+  stroke: var(--axis);
+  stroke-width: 0.07;
+}
+
+.lbl {
+  fill: var(--muted);
+  font-family: var(--f-mono);
+  font-size: 0.42px;
+}
+
+/* a line that is part of the puzzle, not the student's */
+.gv {
+  stroke: var(--axis);
+  stroke-width: 0.1;
+}
+
+.star {
+  fill: var(--star);
+}
+
+/* the student's line. red once it is marked wrong, green once right */
+.ul {
+  stroke: var(--accent);
+  stroke-width: 0.13;
+  stroke-linecap: round;
+}
+
+.ul.bad {
+  stroke: var(--bad);
+}
+
+.ul.win {
+  stroke: var(--good);
+}
+
+.pt {
+  fill: var(--accent);
+}
+
+.pt.bad {
+  fill: var(--bad);
+}
+
+.pt.win {
+  fill: var(--good);
+}
+
+/* ghost dot that follows the mouse before a point is placed */
+.hov {
+  fill: var(--accent);
+  opacity: 0.25;
+}
+
+/* ===================================================================
+   step-by-step explanation drawn on the board
+   each piece has a step number --i and appears in order: start point,
+   rise, run, end point, then the whole line
+   =================================================================== */
+
+.ex-pt {
+  fill: var(--good);
+}
+
+.ex-halo {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 0.08;
+}
+
+/* ring around a correct answer point, green unlike the red mistake halo */
+.ex-ring {
+  fill: none;
+  stroke: var(--good);
+  stroke-width: 0.08;
+}
+
+.ex-leg {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 0.08;
+}
+
+.ex-leg.emph {
+  stroke: var(--bad);
+  stroke-width: 0.12;
+}
+
+/* the paper-colored outline keeps labels readable over grid lines and axis numbers */
+.ex-lbl {
+  fill: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 0.46px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--paper);
+  stroke-width: 0.14px;
+  stroke-linejoin: round;
+}
+
+.ex-lbl.emph {
+  fill: var(--bad);
+}
+
+.ex-line {
+  fill: none;
+  stroke: var(--good);
+  stroke-width: 0.11;
+}
+
+.step {
+  animation: ex-fade 0.35s ease-out both;
+  animation-delay: calc(0.25s + var(--i) * 0.6s);
+}
+
+/* paths drawn with pathLength="1" so the dash trick works at any size */
+.draw {
+  stroke-dasharray: 1;
+  stroke-linecap: butt;
+  animation: ex-draw 0.5s ease-out both;
+  animation-delay: calc(0.25s + var(--i) * 0.6s);
+}
+
+@keyframes ex-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ex-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step,
+  .draw {
+    animation: none;
+  }
+}
+
+/* ===================================================================
+   feedback
+   =================================================================== */
+
+.fb {
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid transparent;
+}
+
+.fb.ok {
+  background: var(--good-bg);
+  border-color: var(--good);
+}
+
+.fb.no {
+  background: var(--bad-bg);
+  border-color: var(--bad);
+}
+
+.fb strong {
+  font-family: var(--f-display);
+  font-size: 19px;
+}
+
+.fb.ok strong {
+  color: var(--good);
+}
+
+.fb.no strong {
+  color: var(--bad);
+}
+
+/* the worked arithmetic under a slope answer */
+.work {
+  font-family: var(--f-mono);
+  font-size: 15px;
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.legend span::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+  height: 3px;
+  vertical-align: middle;
+  margin-right: 6px;
+  background: var(--accent);
+}
+
+.legend .lk::before {
+  background: var(--good);
+}
+
+.legend .lu.bad::before {
+  background: var(--bad);
+}
+
+/* ===================================================================
+   guided session start screen
+   =================================================================== */
+
+.plan {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.plan div {
+  border-top: 3px solid var(--accent);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.plan b {
+  font-family: var(--f-display);
+  font-size: 18px;
+}
+
+/* ===================================================================
+   topic engine practice
+   =================================================================== */
+
+/* a little smaller than .eq so long equations fit on a phone */
+.teq {
+  font-size: clamp(20px, 6vw, 28px);
+}
+
+input.wide {
+  width: min(100%, 22ch);
+}
+
+/* the two lines in a system, and the matching marks by each equation */
+.sys1 {
+  stroke: var(--axis);
+  stroke-width: 0.1;
+}
+
+.sys2 {
+  stroke: var(--accent);
+  stroke-width: 0.1;
+  stroke-dasharray: 0.3 0.18;
+}
+
+.key1::before,
+.key2::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+  height: 4px;
+  margin-right: 10px;
+  vertical-align: middle;
+  background: var(--axis);
+}
+
+.key2::before {
+  background: var(--accent);
+}
+
+.choices {
+  display: grid;
+  gap: 8px;
+}
+
+.choice {
+  font: 600 18px var(--f-mono);
+  text-align: left;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.choice[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.choice.right {
+  border-color: var(--good);
+  background: var(--good-bg);
+}
+
+.choice.wrong {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+}
+
+.choice:disabled {
+  cursor: default;
+  opacity: 1;
+  color: var(--ink);
+}
+
+.worked {
+  margin: 0;
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* number line for inequality answers */
+.nl {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+}
+
+.nl-axis {
+  stroke: var(--axis);
+  stroke-width: 0.5;
+  fill: none;
+}
+
+.nl-tick {
+  stroke: var(--axis);
+  stroke-width: 0.4;
+}
+
+.nl-lbl {
+  fill: var(--muted);
+  font-family: var(--f-mono);
+  font-size: 3.4px;
+}
+
+.nl-ray {
+  stroke: var(--good);
+  stroke-width: 1.6;
+  fill: none;
+}
+
+.nl-dot {
+  fill: var(--good);
+  stroke: var(--good);
+  stroke-width: 0.6;
+}
+
+.nl-dot.open {
+  fill: var(--paper);
+}
+
+/* ===================================================================
+   puzzles
+   =================================================================== */
+
+.pchips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pchip {
+  font: 700 15px var(--f-body);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.pchip.solved {
+  background: var(--good-bg);
+  border-color: var(--good);
+  color: var(--good);
+}
+
+.pchip[aria-current="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* ===================================================================
+   tutor mode
+   =================================================================== */
+
+.split {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.sub {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#joincode {
+  text-transform: uppercase;
+  width: 6ch;
+}
+
+.code {
+  font: 800 clamp(40px, 12vw, 64px) var(--f-mono);
+  letter-spacing: 0.12em;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.status::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.status.live::before {
+  background: var(--good);
+}
+
+.status.wait::before {
+  background: var(--star);
+}
+
+.status.err::before {
+  background: var(--bad);
+}
+
+/* ===================================================================
+   tutor session (room.js)
+   wider than the rest of the page so the board has room
+   =================================================================== */
+
+.room {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 0 48px;
+}
+
+.room-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 960px) {
+  .room-grid {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+  }
+}
+
+.room-main,
+.room-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wb-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.tool {
+  font: 700 14px var(--f-body);
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.tool[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.swatches {
+  display: inline-flex;
+  gap: 6px;
+  padding-inline: 4px;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid var(--paper);
+  box-shadow: 0 0 0 1.5px var(--line);
+  cursor: pointer;
+}
+
+.swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2.5px var(--accent);
+}
+
+.tool:focus-visible,
+.swatch:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wb-wrap {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+/* touch-action none lets a finger draw instead of scrolling the page */
+#wb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.wb-wrap[data-tool="erase"] #wb {
+  cursor: cell;
+}
+
+.wb-wrap[data-tool="move"] #wb {
+  cursor: grab;
+}
+
+.wb-drop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  border: 3px dashed var(--accent);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.calc {
+  height: 400px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.calc-off {
+  padding: 16px;
+  color: var(--muted);
+}
+
+/* video tiles stay dark in both themes, like any video call */
+.av {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (min-width: 960px) {
+  .av {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tile {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--tile);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.tile video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* your own camera is mirrored, the way a mirror looks */
+#v-local {
+  transform: scaleX(-1);
+}
+
+.tile-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  text-align: center;
+  color: var(--on-tile);
+  opacity: 0.75;
+  font-size: 14px;
+}
+
+.tile.live .tile-empty {
+  display: none;
+}
+
+.tile-lbl {
+  position: absolute;
+  left: 8px;
+  bottom: 6px;
+  font: 700 12px var(--f-body);
+  color: var(--on-tile);
+  background: var(--tile-label);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.tile-play {
+  position: absolute;
+  inset: auto 8px 36px;
+  font: 700 14px var(--f-body);
+  padding: 8px;
+  border-radius: 8px;
+  border: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+
+.av-ctl .btn {
+  font-size: 14px;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+#chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 140px;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+#chat-log b {
+  margin-right: 6px;
+}
+
+#chat-log .me b {
+  color: var(--accent);
+}
+
+.chat form {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+}
+
+#chat-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  font: 16px var(--f-body);
+  padding: 8px 10px;
+}
+
+.chat .btn {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 15px;
+}
+
+/* ===================================================================
+   results
+   =================================================================== */
+
+.scores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.score {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.score b {
+  font-family: var(--f-display);
+  font-size: clamp(30px, 8vw, 44px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* skill name, then the check 1 and check 2 marks for it */
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px 54px;
+  gap: 6px 10px;
+  align-items: center;
+  font-size: 15px;
+}
+
+.pair .h {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.mark {
+  font-weight: 700;
+  text-align: center;
+  border-radius: 6px;
+  padding: 2px 0;
+}
+
+.mark.y {
+  background: var(--good-bg);
+  color: var(--good);
+}
+
+.mark.n {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+/* bar chart of which mistakes came up during practice */
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 190px) minmax(0, 1fr) 28px;
+  gap: 10px;
+  align-items: center;
+  font-size: 15px;
+}
+
+.bar i {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--bad);
+}
+
+.bar span:last-child {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ===================================================================
+   results log
+   =================================================================== */
+
+.tablewrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 560px;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+textarea {
+  width: 100%;
+  min-height: 120px;
+  font: 13px var(--f-mono);
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fb {
+    animation: pop 0.18s ease-out;
+  }
+
+  @keyframes pop {
+    from {
+      transform: translateY(4px);
+      opacity: 0.6;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 21 L21 3" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+        <path d="M8 16 H16 V8" stroke="var(--muted)" stroke-width="2" fill="none" stroke-dasharray="2 2"/>
+      </svg>
+      Slopewise
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+  </header>
+  <main id="app"></main>
+</div>
+
+<!-- the live tutor session. it sits outside #app so re-rendering the
+     page never wipes the board or cuts the call -->
+<section id="room" class="room" hidden aria-label="Tutor session"></section>
+
+<!-- tutor mode: peerjs for the browser to browser link, tutor.js wraps it -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="tutor.js"></script>
+<!-- every algebra 1 topic beyond graphing lines and slope -->
+<script src="topics.js"></script>
+<!-- the tutor session: whiteboard, calculator, video, chat -->
+<script src="room.js"></script>
+
+<script>
+/* ===================================================================
+   slopewise
+   algebra 1 practice built around naming the specific mistake behind a
+   wrong answer, then replaying the correct steps on the graph
+
+   the file is organized as:
+     1. number helpers and display
+     2. problem definitions and generators
+     3. mistake diagnosis
+     4. storage
+     5. graph drawing and the step-by-step replay
+     6. topics and puzzles
+     7. session state and flow
+     8. puzzle and tutor state
+     9. views
+    10. event wiring
+   =================================================================== */
+
+
+/* ===================================================================
+   1. number helpers and display
+   =================================================================== */
+
+const $ = selector => document.querySelector(selector);
+const app = $('#app');
+
+const EPS = 1e-9;
+
+// floating point comparison. graph answers are exact, so the default
+// tolerance is tiny, typed decimals get a looser one (see diagSlope)
+const near = (a, b, tolerance = EPS) => Math.abs(a - b) < tolerance;
+
+// random integer in [a, b], and a random element of an array
+const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = array => array[Math.floor(Math.random() * array.length)];
+
+function gcd(a, b) {
+  a = Math.abs(a);
+  b = Math.abs(b);
+  while (b) [a, b] = [b, a % b];
+  return a || 1;
+}
+
+// fractions are kept as {n, d} in lowest terms with the sign on top,
+// so that two equal slopes always have identical fields
+function frac(n, d = 1) {
+  if (d < 0) {
+    n = -n;
+    d = -d;
+  }
+  const g = gcd(n, d);
+  return { n: n / g, d: d / g };
+}
+
+const val = f => f.n / f.d;
+
+// minus sign for display, and parentheses around a negative so that
+// the worked arithmetic reads as 5 - (-2) rather than 5 - -2
+const neg = n => (n < 0 ? '−' + (-n) : String(n));
+const par = n => (n < 0 ? '(−' + (-n) + ')' : String(n));
+
+function fracHTML(f) {
+  if (f.d === 1) return neg(f.n);
+  return (f.n < 0 ? '−' : '') +
+    `<span class="frac"><span>${Math.abs(f.n)}</span><span>${f.d}</span></span>`;
+}
+
+// renders y = mx + b, dropping the 1 in 1x and folding in the signs
+function eqHTML(m, b) {
+  let s = 'y = ';
+
+  if (m.d === 1) {
+    if (m.n === 1) s += 'x';
+    else if (m.n === -1) s += '−x';
+    else s += neg(m.n) + 'x';
+  } else {
+    s += fracHTML(m) + 'x';
+  }
+
+  if (b) s += b > 0 ? ' + ' + b : ' − ' + (-b);
+  return s;
+}
+
+const mText = m => (m.d === 1 ? String(m.n) : `${m.n}/${m.d}`);
+
+// plain-text version of a problem, for the csv log
+function promptText(item) {
+  if (item.type === 'graph') {
+    return `y = ${mText(item.m)}x ${item.b < 0 ? '- ' + -item.b : '+ ' + item.b}`;
+  }
+  return `(${item.p1}) and (${item.p2})`;
+}
+
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"]/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;'
+  })[c]);
+}
+
+
+/* ===================================================================
+   2. problem definitions and generators
+
+   two problem types:
+     graph  - given y = mx + b, place two points on the line
+     slope  - given two points, type the slope
+
+   tiers run 1 (integer slopes) to 3 (fractions and negatives)
+   =================================================================== */
+
+const G = (n, d, b, tier) => ({ type: 'graph', m: frac(n, d), b, tier });
+const S_ = (p1, p2, tier) => ({ type: 'slope', p1, p2, tier });
+
+// the two check forms. position i in Form A and position i in Form B
+// test the same skill at the same difficulty, so the two scores are
+// comparable. which form a student sees first is randomized
+const FORMS = {
+  A: [
+    G(2, 1, 1, 1),
+    G(-3, 1, 4, 2),
+    G(1, 2, -2, 3),
+    G(-2, 3, 1, 3),
+    S_([1, 2], [3, 8], 1),
+    S_([-2, 5], [2, -3], 2),
+    S_([-1, -4], [5, 0], 3)
+  ],
+  B: [
+    G(3, 1, -1, 1),
+    G(-2, 1, 3, 2),
+    G(1, 3, 2, 3),
+    G(-3, 2, -1, 3),
+    S_([2, 1], [4, 9], 1),
+    S_([-2, 7], [1, -2], 2),
+    S_([-4, -2], [2, 2], 3)
+  ]
+};
+
+// what each position in both forms is testing. used in the results table
+const SKILL = [
+  'Graph, positive slope',
+  'Graph, negative slope',
+  'Graph, fraction slope',
+  'Graph, negative fraction slope',
+  'Slope from points, positive',
+  'Slope from points, negative',
+  'Slope from points, fraction'
+];
+
+function genGraph(tier) {
+  if (tier === 1) {
+    return G(ri(1, 3), 1, ri(-3, 3), 1);
+  }
+
+  if (tier === 2) {
+    // weighted toward negative slopes, which is what this tier is for
+    const slope = pick([-3, -2, -1, -3, -2, 1, 2, 3]);
+    const intercept = ri(-4, 4) || pick([-2, 2]);
+    return G(slope, 1, intercept, 2);
+  }
+
+  // tier 3: a fraction slope in lowest terms
+  const d = pick([2, 3]);
+  let n;
+  do {
+    n = pick([-3, -2, -1, 1, 2, 3]);
+  } while (gcd(n, d) !== 1);
+
+  return G(n, d, ri(-3, 3), 3);
+}
+
+function genSlope(tier) {
+  for (;;) {
+    const x1 = ri(-4, 4);
+    const y1 = ri(-4, 4);
+    let dx, dy;
+
+    if (tier === 1) {
+      // positive whole-number slope
+      dx = ri(1, 3);
+      dy = dx * ri(1, 3);
+    } else if (tier === 2) {
+      // whole-number slope, either sign, points in either order
+      dx = ri(1, 3) * pick([1, -1]);
+      dy = dx * pick([-3, -2, -1, 2, 3]);
+    } else {
+      // tier 3: dy is deliberately not a multiple of dx, so the
+      // answer is a fraction
+      dx = pick([2, 3, 4, 6]) * pick([1, -1]);
+      do {
+        dy = ri(-6, 6);
+      } while (dy === 0 || dy % dx === 0);
+    }
+
+    const x2 = x1 + dx;
+    const y2 = y1 + dy;
+
+    // reject anything that runs off the readable part of the grid
+    if (Math.abs(x2) <= 8 && Math.abs(y2) <= 9) {
+      let p1 = [x1, y1];
+      let p2 = [x2, y2];
+
+      // above tier 1, sometimes list the points in reverse, so that
+      // subtraction order actually matters
+      if (tier > 1 && Math.random() < 0.5) [p1, p2] = [p2, p1];
+
+      return S_(p1, p2, tier);
+    }
+  }
+}
+
+
+/* ===================================================================
+   3. mistake diagnosis
+
+   for each problem, work out the answer a student would produce from
+   each known mistake, then match their actual answer against that
+   list. a match names the mistake. no match falls back to a generic
+   response
+   =================================================================== */
+
+/**
+ * candidate wrong lines for a graphing problem
+ * each entry is the line a student would draw after one mistake.
+ * candidates equal to the correct line, or to each other, are dropped,
+ * so a correct answer is never reported as a mistake
+ */
+function graphCands(item) {
+  const m = val(item.m);
+  const b = item.b;
+  const raw = [];
+
+  // slope read as run over rise. meaningless when the slope is 1 or -1
+  if (!near(Math.abs(m), 1)) raw.push(['flip', 1 / m, b]);
+
+  // slope tilted the wrong way
+  raw.push(['sign', -m, b]);
+
+  // both at once
+  if (!near(Math.abs(m), 1)) raw.push(['negrecip', -1 / m, b]);
+
+  // the rest only make sense when there is an intercept to get wrong
+  if (b !== 0) {
+    raw.push(['swap', b, m]);          // m and b exchanged
+    raw.push(['bsign', m, -b]);        // intercept sign flipped
+    raw.push(['origin', m, 0]);        // started at the origin
+    raw.push(['xaxis', m, -m * b]);    // intercept put on the x-axis
+  }
+
+  const out = [];
+  for (const [id, cm, cb] of raw) {
+    if (near(cm, m) && near(cb, b)) continue;                       // same as correct
+    if (out.some(o => near(o.m, cm) && near(o.b, cb))) continue;    // duplicate
+    out.push({ id, m: cm, b: cb });
+  }
+  return out;
+}
+
+/** diagnoses the line through the two points the student placed */
+function diagGraph(item, points) {
+  const [p, q] = points;
+
+  // two points stacked vertically give no slope at all
+  if (p[0] === q[0]) return { ok: false, id: 'vertical' };
+
+  const m = (q[1] - p[1]) / (q[0] - p[0]);
+  const b = p[1] - m * p[0];
+  const correctM = val(item.m);
+
+  if (near(m, correctM) && near(b, item.b)) return { ok: true };
+
+  for (const c of graphCands(item)) {
+    if (near(c.m, m) && near(c.b, b)) return { ok: false, id: c.id };
+  }
+
+  // no named mistake matched. say which half was right
+  if (near(m, correctM)) return { ok: false, id: 'intoff' };
+  if (near(b, item.b)) return { ok: false, id: 'slopeoff' };
+  return { ok: false, id: 'other' };
+}
+
+/**
+ * candidate wrong values for a slope-from-two-points problem
+ * each entry is the number one mistake would produce
+ */
+function slopeCands(item) {
+  const [x1, y1] = item.p1;
+  const [x2, y2] = item.p2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const correct = dy / dx;
+  const raw = [];
+
+  if (dy !== 0) raw.push(['inv', dx / dy]);              // divided the wrong way
+  raw.push(['order', -correct]);                         // inconsistent subtraction order
+  raw.push(['nodiv', dy]);                               // found the rise, never divided
+  if (x1 + x2 !== 0) raw.push(['added', (y1 + y2) / (x1 + x2)]); // added instead of subtracted
+
+  const out = [];
+  for (const [id, v] of raw) {
+    if (near(v, correct)) continue;
+    if (out.some(o => near(o.v, v))) continue;
+    out.push({ id, v });
+  }
+  return out;
+}
+
+/**
+ * diagnoses a typed slope
+ * a decimal answer gets a looser tolerance, since a student rounding
+ * 2/3 to 0.67 by hand has the right idea
+ */
+function diagSlope(item, x, isDecimal) {
+  const tolerance = isDecimal ? 0.006 : EPS;
+  const correct = (item.p2[1] - item.p1[1]) / (item.p2[0] - item.p1[0]);
+
+  if (near(x, correct, tolerance)) return { ok: true };
+
+  for (const c of slopeCands(item)) {
+    if (near(x, c.v, tolerance)) return { ok: false, id: c.id };
+  }
+  return { ok: false, id: 'other' };
+}
+
+/** accepts "-3", "3/4", "0.75", and the various dash characters */
+function parseNum(s) {
+  s = s.replace(/[−–—]/g, '-').replace(/\s+/g, '');
+  if (!s) return null;
+
+  const fraction = s.match(/^(-?\d*\.?\d+)\/(-?\d*\.?\d+)$/);
+  if (fraction) {
+    const d = parseFloat(fraction[2]);
+    return d === 0 ? null : parseFloat(fraction[1]) / d;
+  }
+
+  return /^-?\d*\.?\d+$/.test(s) ? parseFloat(s) : null;
+}
+
+// what each diagnosis says to the student. the tip explains the fix,
+// in the words an 8th grader would use
+const MISTAKES = {
+  flip: {
+    label: 'Flipped slope',
+    tip: 'Your slope is upside down. Slope is rise over run: move up or down by the top number, then right by the bottom number.'
+  },
+  sign: {
+    label: 'Wrong direction',
+    tip: 'Your line tilts the wrong way. A negative slope goes down as you move right. A positive slope goes up.'
+  },
+  negrecip: {
+    label: 'Flipped and wrong direction',
+    tip: 'Your slope is upside down and tilts the wrong way. The top number is up or down, the bottom number is right, and the sign tells you up or down.'
+  },
+  swap: {
+    label: 'Mixed up m and b',
+    tip: 'In y = mx + b, the number next to x is the slope. The number by itself is where the line crosses the y-axis.'
+  },
+  bsign: {
+    label: 'Wrong sign on b',
+    tip: 'Check the sign of the number by itself. y = 2x − 3 crosses the y-axis at −3, below zero.'
+  },
+  origin: {
+    label: 'Skipped the starting point',
+    tip: 'Your line goes through (0, 0). Start at b on the y-axis first, then use the slope from there.'
+  },
+  xaxis: {
+    label: 'Started on the x-axis',
+    tip: 'b goes on the y-axis, the one that runs up and down. Your line starts on the x-axis instead.'
+  },
+  intoff: {
+    label: 'Right slope, wrong start',
+    tip: 'Your slope is correct. The line crosses the y-axis in the wrong place. Find b and start there.'
+  },
+  slopeoff: {
+    label: 'Right start, wrong slope',
+    tip: 'You started at the right spot. Count the rise and the run again.'
+  },
+  vertical: {
+    label: 'Points stacked up',
+    tip: 'Your two points are directly above each other. After moving up or down, move right by the bottom number of the slope.'
+  },
+  inv: {
+    label: 'Run over rise',
+    tip: 'You divided the wrong way. Slope is the change in y on top, divided by the change in x on the bottom.'
+  },
+  order: {
+    label: 'Subtraction order',
+    tip: 'Subtract in the same order on top and bottom: (y₂ − y₁) ÷ (x₂ − x₁). Mixing the order flips the sign.'
+  },
+  nodiv: {
+    label: 'Forgot to divide',
+    tip: 'You found the rise. Now divide it by the run, the change in x.'
+  },
+  added: {
+    label: 'Added instead of subtracted',
+    tip: 'Slope uses differences. Subtract the y-values and subtract the x-values.'
+  },
+  other: {
+    label: 'Not quite',
+    tip: 'Compare your answer with the correct steps and find where they split.'
+  },
+  blank: {
+    label: 'Skipped',
+    tip: ''
+  }
+};
+
+// which problem type can produce each mistake. used to pick targeted
+// practice: a graphing mistake needs a graphing problem to recur
+const GRAPH_IDS = new Set(['flip', 'sign', 'negrecip', 'swap', 'bsign', 'origin', 'xaxis']);
+const SLOPE_IDS = new Set(['inv', 'order', 'nodiv', 'added']);
+
+// which part of the replay to highlight for each mistake. intercept
+// mistakes highlight the starting point, slope mistakes the rise and run
+const EMPHASIS = {
+  swap: 'start', bsign: 'start', origin: 'start', xaxis: 'start', intoff: 'start',
+  flip: 'legs', sign: 'legs', negrecip: 'legs', slopeoff: 'legs', vertical: 'legs',
+  inv: 'legs', order: 'legs', nodiv: 'legs', added: 'legs'
+};
+
+// topics.js loads separately. if it is missing, those topics show as
+// unavailable and the rest of the app keeps working
+const engineReady = typeof ENGINE !== 'undefined';
+if (engineReady) Object.assign(MISTAKES, ENGINE.mistakes);
+
+
+/* ===================================================================
+   4. storage
+
+   everything is kept in this browser only. nothing is sent anywhere.
+   every read and write is guarded, because storage throws in private
+   windows and when site data is blocked
+   =================================================================== */
+
+const STORE = 'slopewise.sessions.v1';
+const PUZZLE_STORE = 'slopewise.puzzles.v1';
+
+function loadAll() {
+  try {
+    return JSON.parse(localStorage.getItem(STORE)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSession(session) {
+  try {
+    const all = loadAll();
+    const i = all.findIndex(s => s.id === session.id);
+    if (i >= 0) all[i] = session;
+    else all.push(session);
+    localStorage.setItem(STORE, JSON.stringify(all));
+  } catch (e) {
+    // storage unavailable. the session still runs, it just is not kept
+  }
+}
+
+function clearAll() {
+  try {
+    localStorage.removeItem(STORE);
+  } catch (e) {}
+}
+
+function loadSolved() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(PUZZLE_STORE)) || []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function saveSolved(set) {
+  try {
+    localStorage.setItem(PUZZLE_STORE, JSON.stringify([...set]));
+  } catch (e) {}
+}
+
+function toCSV(sessions) {
+  const rows = [[
+    'session', 'date', 'form_order', 'phase', 'n', 'type', 'tier',
+    'prompt', 'answer', 'correct', 'mistake', 'seconds'
+  ]];
+
+  for (const s of sessions) {
+    for (const e of s.log) {
+      rows.push([
+        s.id,
+        new Date(s.started).toISOString().slice(0, 10),
+        s.order,
+        e.phase,
+        e.n,
+        e.type,
+        e.tier,
+        e.prompt,
+        e.answer,
+        e.correct ? 1 : 0,
+        e.mistake || '',
+        (e.ms / 1000).toFixed(1)
+      ]);
+    }
+  }
+
+  return rows
+    .map(row => row.map(cell => {
+      cell = String(cell);
+      return /[",\n]/.test(cell) ? '"' + cell.replace(/"/g, '""') + '"' : cell;
+    }).join(','))
+    .join('\n');
+}
+
+function score(session, phase) {
+  const list = session.log.filter(e => e.phase === phase);
+  return { right: list.filter(e => e.correct).length, n: list.length, list };
+}
+
+
+/* ===================================================================
+   5. graph drawing and the step-by-step replay
+
+   one svg unit is one grid square. screen y is negated so that
+   positive y points up. the grid runs from -6 to 6
+   =================================================================== */
+
+const N = 6;
+
+// drawn well past the edges, then clipped, so a steep line still
+// reaches the corners
+function lineSVG(m, b, className) {
+  return `<line class="${className}" x1="-8" y1="${-(m * -8 + b)}" x2="8" y2="${-(m * 8 + b)}"/>`;
+}
+
+// a four-pointed star marking a point the puzzle cares about
+function starSVG([x, y]) {
+  const cy = -y;
+  return `<path class="star" d="M${x} ${cy - 0.38} L${x + 0.13} ${cy - 0.13} L${x + 0.38} ${cy} ` +
+    `L${x + 0.13} ${cy + 0.13} L${x} ${cy + 0.38} L${x - 0.13} ${cy + 0.13} ` +
+    `L${x - 0.38} ${cy} L${x - 0.13} ${cy - 0.13} Z"/>`;
+}
+
+/**
+ * the replay: the correct line built one move at a time
+ * ex: {p, q, emph, startLabel}
+ *   p, q        - start point and end point on the correct line
+ *   emph        - 'start' or 'legs', the part tied to the mistake
+ *   startLabel  - text beside the start point, e.g. "b = 1"
+ *
+ * the full line is returned separately because it has to sit inside
+ * the clipped group, while points and labels must not be clipped
+ */
+function explainLine(ex) {
+  const [x1, y1] = ex.p;
+  const [x2, y2] = ex.q;
+  const m = (y2 - y1) / (x2 - x1);
+  const b = y1 - m * x1;
+  return `<path class="ex-line draw" pathLength="1" style="--i:4" d="M-8 ${-(m * -8 + b)} L8 ${-(m * 8 + b)}"/>`;
+}
+
+function explainParts(ex) {
+  const [x1, y1] = ex.p;
+  const [x2, y2] = ex.q;
+  const rise = y2 - y1;
+  const run = x2 - x1;
+  const right = run >= 0;
+  const legs = ex.emph === 'legs' ? ' emph' : '';
+  const start = ex.emph === 'start' ? ' emph' : '';
+  let s = '';
+
+  // step 0: the starting point
+  if (ex.emph === 'start') {
+    s += `<circle class="ex-halo step" style="--i:0" cx="${x1}" cy="${-y1}" r="0.55"/>`;
+  }
+  s += `<circle class="ex-pt step" style="--i:0" cx="${x1}" cy="${-y1}" r="0.22"/>`;
+  if (ex.startLabel) {
+    // level with the point, on the side away from the run
+    s += `<text class="ex-lbl step${start}" style="--i:0" x="${x1 + (right ? -0.35 : 0.35)}" y="${-y1 + 0.15}" ` +
+      `text-anchor="${right ? 'end' : 'start'}">${ex.startLabel}</text>`;
+  }
+
+  // step 1: the rise, straight up or down from the start
+  s += `<path class="ex-leg draw${legs}" pathLength="1" style="--i:1" d="M${x1} ${-y1} V${-y2}"/>`;
+  s += `<text class="ex-lbl step${legs}" style="--i:1" x="${x1 + (right ? -0.3 : 0.3)}" ` +
+    `y="${-(y1 + y2) / 2 + 0.15}" text-anchor="${right ? 'end' : 'start'}">rise ${neg(rise)}</text>`;
+
+  // step 2: the run, across to the second point
+  s += `<path class="ex-leg draw${legs}" pathLength="1" style="--i:2" d="M${x1} ${-y2} H${x2}"/>`;
+  s += `<text class="ex-lbl step${legs}" style="--i:2" x="${(x1 + x2) / 2}" ` +
+    `y="${rise > 0 ? -y2 - 0.3 : -y2 + 0.65}" text-anchor="middle">run ${neg(run)}</text>`;
+
+  // step 3: the second point
+  s += `<circle class="ex-pt step" style="--i:3" cx="${x2}" cy="${-y2}" r="0.22"/>`;
+
+  return s;
+}
+
+/**
+ * builds the whole board
+ * opts: {id, given, user, pts, bad, win, hover, stars, explain, aria}
+ *   given    - a line that belongs to a puzzle, drawn gray
+ *   user     - the student's line, or {vx} for a vertical one
+ *   pts      - the student's placed points
+ *   bad/win  - color the student's work red or green
+ *   hover    - ghost dot under the mouse
+ *   stars    - points a puzzle asks about
+ *   explain  - the step-by-step replay of the correct line
+ *   lines    - extra lines [{m, b, cls}], used by the topic engine
+ *   paths    - extra svg paths [{d, cls, i}], e.g. a parabola
+ *   dots     - extra points [{p, cls, r, i}]
+ */
+function boardSVG(opts = {}) {
+  const id = opts.id || '';
+  const label = opts.aria || 'Coordinate grid from −6 to 6';
+
+  let s = `<svg viewBox="-6.9 -6.9 13.8 13.8" role="img" aria-label="${label}">` +
+    `<defs><clipPath id="clip${id}">` +
+    `<rect x="-6.4" y="-6.4" width="12.8" height="12.8"/>` +
+    `</clipPath></defs>`;
+
+  // grid lines, axes, and labels on every second line
+  for (let i = -N; i <= N; i++) {
+    const axis = i === 0 ? ' ax' : '';
+    s += `<line class="gl${axis}" x1="${i}" y1="${-N - 0.3}" x2="${i}" y2="${N + 0.3}"/>`;
+    s += `<line class="gl${axis}" x1="${-N - 0.3}" y1="${i}" x2="${N + 0.3}" y2="${i}"/>`;
+
+    if (i && i % 2 === 0) {
+      s += `<text class="lbl" x="${i}" y="0.62" text-anchor="middle">${neg(i)}</text>`;
+      s += `<text class="lbl" x="-0.25" y="${-i + 0.15}" text-anchor="end">${neg(i)}</text>`;
+    }
+  }
+
+  s += `<text class="lbl" x="6.55" y="-0.2">x</text>`;
+  s += `<text class="lbl" x="0.22" y="-6.45">y</text>`;
+
+  // lines are clipped to the grid, points and labels are not
+  const tone = (opts.bad ? ' bad' : '') + (opts.win ? ' win' : '');
+  s += `<g clip-path="url(#clip${id})">`;
+  if (opts.given) s += lineSVG(opts.given.m, opts.given.b, 'gv');
+  for (const l of opts.lines || []) s += lineSVG(l.m, l.b, l.cls);
+  for (const p of opts.paths || []) {
+    s += `<path class="${p.cls}" pathLength="1" style="--i:${p.i || 0}" d="${p.d}"/>`;
+  }
+  if (opts.user) {
+    s += opts.user.vx !== undefined
+      ? `<line class="ul${tone}" x1="${opts.user.vx}" y1="-8" x2="${opts.user.vx}" y2="8"/>`
+      : lineSVG(opts.user.m, opts.user.b, 'ul' + tone);
+  }
+  if (opts.explain) s += explainLine(opts.explain);
+  s += '</g>';
+
+  for (const p of opts.stars || []) s += starSVG(p);
+  if (opts.explain) s += explainParts(opts.explain);
+  for (const d of opts.dots || []) {
+    s += `<circle class="${d.cls}" style="--i:${d.i || 0}" cx="${d.p[0]}" cy="${-d.p[1]}" r="${d.r || 0.22}"/>`;
+  }
+
+  if (opts.hover) {
+    s += `<circle class="hov" cx="${opts.hover[0]}" cy="${-opts.hover[1]}" r="0.34"/>`;
+  }
+
+  for (const p of opts.pts || []) {
+    s += `<circle class="pt${tone}" cx="${p[0]}" cy="${-p[1]}" r="0.23"/>`;
+  }
+
+  return s + '</svg>';
+}
+
+/** slope and intercept of the line through two placed points */
+function lineThrough([p, q]) {
+  if (p[0] === q[0]) return { vx: p[0] };
+  const m = (q[1] - p[1]) / (q[0] - p[0]);
+  return { m, b: p[1] - m * p[0] };
+}
+
+/**
+ * two lattice points on a line {m, b}: the intercept, and one step
+ * of the slope from it. steps backwards if forwards runs off the grid
+ */
+function keyPoints(line) {
+  const b = line.b;
+  const { n, d } = line.m;
+  return Math.abs(b + n) <= N ? [[0, b], [d, b + n]] : [[0, b], [-d, b - n]];
+}
+
+
+/* ===================================================================
+   6. topics and puzzles
+   =================================================================== */
+
+// the algebra 1 course map. graph and slope run on the original
+// question screen, everything else runs on the topic engine in topics.js
+const TOPICS = [
+  {
+    unit: 'Linear equations and graphs',
+    items: [
+      { id: 'graph', type: 'graph', title: 'Graph y = mx + b', blurb: 'Place two points to draw a line from its equation.' },
+      { id: 'slope', type: 'slope', title: 'Slope from two points', blurb: 'Find rise over run for a pair of points.' },
+      { id: 'writeeq', engine: true, title: 'Write an equation from a graph', blurb: 'Read the slope and y-intercept off a drawn line.' },
+      { id: 'pointslope', engine: true, title: 'Point-slope form', blurb: 'Turn y − y₁ = m(x − x₁) into y = mx + b.' },
+      { id: 'standard', engine: true, title: 'Standard form', blurb: 'Graph a line written as Ax + By = C.' },
+      { id: 'parperp', engine: true, title: 'Parallel and perpendicular lines', blurb: 'Write a line through a point with a related slope.' }
+    ]
+  },
+  {
+    unit: 'Solving equations',
+    items: [
+      { id: 'onestep', engine: true, title: 'One-step equations', blurb: 'Undo a single operation to find x.' },
+      { id: 'twostep', engine: true, title: 'Two-step equations', blurb: 'Undo adding, then undo multiplying.' },
+      { id: 'multistep', engine: true, title: 'Multi-step equations', blurb: 'Distribute, combine, and solve.' },
+      { id: 'bothsides', engine: true, title: 'Variables on both sides', blurb: 'Gather the x terms on one side first.' },
+      { id: 'literal', engine: true, title: 'Literal equations', blurb: 'Solve a formula for one of its letters.' }
+    ]
+  },
+  {
+    unit: 'Inequalities',
+    items: [
+      { id: 'ineq', engine: true, title: 'Solve and graph inequalities', blurb: 'Solve, then see the answer on a number line.' },
+      { id: 'compound', engine: true, title: 'Compound inequalities', blurb: 'Solve all three parts at once.' },
+      { id: 'absval', engine: true, title: 'Absolute value equations', blurb: 'Split into two cases and solve both.' }
+    ]
+  },
+  {
+    unit: 'Systems of equations',
+    items: [
+      { id: 'sysgraph', engine: true, title: 'Solve by graphing', blurb: 'Tap the point where two lines cross.' },
+      { id: 'substitution', engine: true, title: 'Substitution', blurb: 'Replace one variable with an expression.' },
+      { id: 'elimination', engine: true, title: 'Elimination', blurb: 'Add or subtract equations to cancel a variable.' }
+    ]
+  },
+  {
+    unit: 'Exponents and polynomials',
+    items: [
+      { id: 'exprules', engine: true, title: 'Exponent rules', blurb: 'Products, powers, and quotients of powers.' },
+      { id: 'addpoly', engine: true, title: 'Add and subtract polynomials', blurb: 'Combine like terms, watching the signs.' },
+      { id: 'multpoly', engine: true, title: 'Multiply polynomials', blurb: 'Multiply every term by every term.' },
+      { id: 'factor', engine: true, title: 'Factor polynomials', blurb: 'Write x² + bx + c as two factors.' }
+    ]
+  },
+  {
+    unit: 'Quadratics',
+    items: [
+      { id: 'parabola', engine: true, title: 'Graph a parabola', blurb: 'Find and tap the vertex.' },
+      { id: 'solvefactor', engine: true, title: 'Solve by factoring', blurb: 'Set each factor equal to zero.' },
+      { id: 'quadform', engine: true, title: 'Quadratic formula', blurb: 'Plug into the formula and round.' }
+    ]
+  },
+  {
+    unit: 'Functions',
+    items: [
+      { id: 'funcnot', engine: true, title: 'Function notation', blurb: 'Evaluate f(x) at a given input.' },
+      { id: 'domainrange', engine: true, title: 'Domain and range', blurb: 'List the inputs or outputs of a relation.' }
+    ]
+  }
+];
+
+// a topic is ready when its code has loaded
+for (const u of TOPICS) for (const t of u.items) t.ready = !t.engine || engineReady;
+
+const ALL_TOPICS = TOPICS.flatMap(u => u.items);
+
+const inlineEq = (m, b) => `<span class="eq-inline">${eqHTML(m, b)}</span>`;
+
+// original graphing puzzles, easiest first. each target is a line in
+// the same {m, b} shape as a graph problem, so the replay works on it
+const PUZZLES = [
+  {
+    id: 'stars',
+    title: 'Through both stars',
+    prompt: 'Draw the line that passes through both stars.',
+    stars: [[-4, -1], [2, 2]],
+    target: { m: frac(1, 2), b: 1 },
+    hint: 'Count the rise and run from one star to the other, then simplify the fraction.'
+  },
+  {
+    id: 'axes',
+    title: 'Hit both axes',
+    prompt: 'Draw the line that crosses the x-axis at 4 and the y-axis at −2.',
+    target: { m: frac(1, 2), b: -2 },
+    hint: 'Those two crossings are points you can plot: (4, 0) and (0, −2).'
+  },
+  {
+    id: 'parallel',
+    title: 'Parallel track',
+    prompt: `The gray line is ${inlineEq(frac(2), -1)}. Draw the line parallel to it that passes through the star.`,
+    given: { m: frac(2), b: -1 },
+    stars: [[1, 4]],
+    target: { m: frac(2), b: 2 },
+    hint: 'Parallel lines have the same slope. Start at the star and use a rise of 2 and a run of 1.'
+  },
+  {
+    id: 'perp',
+    title: 'Right angle',
+    prompt: `The gray line is ${inlineEq(frac(1, 2), 1)}. Draw the line perpendicular to it through the star.`,
+    given: { m: frac(1, 2), b: 1 },
+    stars: [[2, 2]],
+    target: { m: frac(-2), b: 6 },
+    hint: 'Perpendicular slopes are negative reciprocals. Flip 1/2 and change its sign.'
+  },
+  {
+    id: 'mirror',
+    title: 'Same start, new slope',
+    prompt: `The gray line is ${inlineEq(frac(2, 3), -2)}. Draw a line with the same y-intercept that passes through the star.`,
+    given: { m: frac(2, 3), b: -2 },
+    stars: [[3, -4]],
+    target: { m: frac(-2, 3), b: -2 },
+    hint: 'Both lines cross the y-axis at −2. Count from (0, −2) to the star.'
+  },
+  {
+    id: 'standard',
+    title: 'Unpack it',
+    prompt: 'Draw the line <span class="eq-inline">2x + 3y = 6</span>.',
+    target: { m: frac(-2, 3), b: 2 },
+    hint: 'Solve for y first. 3y = −2x + 6, then divide everything by 3.'
+  },
+  {
+    id: 'three',
+    title: 'Three in a row',
+    prompt: 'Three of these four stars sit on one line. Draw that line.',
+    stars: [[-3, -5], [0, -1], [3, 3], [2, 2]],
+    target: { m: frac(4, 3), b: -1 },
+    hint: 'Try pairs of stars. The right line lands exactly on a third star.'
+  },
+  {
+    id: 'wide',
+    title: 'Long way across',
+    prompt: 'Draw the line through both stars.',
+    stars: [[-5, 4], [5, -2]],
+    target: { m: frac(-3, 5), b: 1 },
+    hint: 'A rise of −6 over a run of 10 simplifies to −3/5. Look for where the line crosses the y-axis.'
+  }
+];
+
+
+/* ===================================================================
+   7. session state and flow
+
+   two kinds of session share the same question screen:
+     guided - check 1 -> practice (>= 10) -> check 2 -> results,
+              saved to the results log
+     free   - open-ended practice on one topic, not saved
+   S always points at whichever one is on screen
+   =================================================================== */
+
+const PRACTICE_MIN = 10;
+
+const TABS = [
+  ['home', 'Home'],
+  ['topics', 'Topics'],
+  ['practice', 'Practice & test'],
+  ['puzzles', 'Puzzles'],
+  ['tutor', 'Tutor']
+];
+
+let tab = 'home';
+let guided = null;
+let free = null;
+let S = null;
+let practicePage = 'main';   // 'main' or 'log' inside the practice tab
+let copyBox = '';            // csv textarea, shown after a copy
+let confirmClear = false;
+
+function makeState(mode) {
+  const order = Math.random() < 0.5 ? 'AB' : 'BA';
+  return {
+    mode,
+    session: {
+      id: 'S-' + Math.random().toString(36).slice(2, 6).toUpperCase(),
+      started: Date.now(),
+      order,
+      log: [],
+      done: false
+    },
+    phase: mode === 'free' ? 'practice' : 'pre',
+    items: FORMS[order[0]],
+    idx: 0,
+    tier: { graph: 1, slope: 1 },
+    streak: { graph: 0, slope: 0 },
+    pcount: 0,
+    item: null,
+    pts: [],
+    answered: null,
+    t0: 0,
+    cursor: null,
+    focus: null,
+    inputErr: false,
+    lastInput: '',
+    view: 'item',
+    only: null,
+    topic: ''
+  };
+}
+
+function newSession() {
+  guided = S = makeState('guided');
+  practicePage = 'main';
+  saveSession(S.session);
+  startItem();
+}
+
+function startFree(topicId) {
+  const topic = ALL_TOPICS.find(t => t.id === topicId && t.ready);
+  if (!topic) return;
+  if (topic.engine) {
+    startTopic(topic);
+    return;
+  }
+  free = S = makeState('free');
+  free.only = topic.type;
+  free.topic = topic.title;
+  startItem();
+}
+
+/** the mistake made most often in practice, once it has happened twice */
+function topMistake() {
+  const counts = {};
+
+  for (const e of S.session.log) {
+    if (e.phase !== 'practice') continue;
+    if (!GRAPH_IDS.has(e.mistake) && !SLOPE_IDS.has(e.mistake)) continue;
+    counts[e.mistake] = (counts[e.mistake] || 0) + 1;
+  }
+
+  const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return best && best[1] >= 2 ? best[0] : null;
+}
+
+/**
+ * picks the next practice problem
+ * normally about two thirds graphing. once a mistake has come up
+ * twice, most problems are ones where that mistake is reachable.
+ * free practice sticks to its one topic
+ */
+function nextPractice() {
+  S.focus = topMistake();
+
+  let type = S.only || (Math.random() < 0.65 ? 'graph' : 'slope');
+  const focusType = S.focus ? (GRAPH_IDS.has(S.focus) ? 'graph' : 'slope') : null;
+  if (focusType && !S.only && Math.random() < 0.75) type = focusType;
+
+  const generate = () => (type === 'graph' ? genGraph(S.tier.graph) : genSlope(S.tier.slope));
+  let item = generate();
+
+  // retry until the focus mistake is actually possible on this problem.
+  // capped so a rare combination cannot hang the loop
+  if (focusType === type) {
+    for (let i = 0; i < 40; i++) {
+      const cands = type === 'graph' ? graphCands(item) : slopeCands(item);
+      const reachable = cands.some(c => c.id === S.focus);
+
+      // 'sign' only means something when the real slope is negative
+      if (reachable && (S.focus !== 'sign' || val(item.m) < 0)) break;
+      item = generate();
+    }
+  }
+
+  item.targeted = focusType === type ? S.focus : null;
+  return item;
+}
+
+/** two right in a row moves up a tier, two wrong moves down */
+function adapt(type, ok) {
+  let s = S.streak[type];
+  s = ok ? (s > 0 ? s + 1 : 1) : (s < 0 ? s - 1 : -1);
+
+  if (s >= 2) {
+    S.tier[type] = Math.min(3, S.tier[type] + 1);
+    s = 0;
+  }
+  if (s <= -2) {
+    S.tier[type] = Math.max(1, S.tier[type] - 1);
+    s = 0;
+  }
+
+  S.streak[type] = s;
+}
+
+function startItem() {
+  S.item = S.phase === 'practice' ? nextPractice() : S.items[S.idx];
+  S.pts = [];
+  S.answered = null;
+  S.inputErr = false;
+  S.lastInput = '';
+  S.t0 = performance.now();
+  S.view = 'item';
+
+  render();
+
+  // focus the answer box on a desktop, but never on a phone, where it
+  // would throw up the keyboard over the graph
+  const target = $('#ans') || $('#board');
+  if (target && matchMedia('(pointer:fine)').matches) {
+    target.focus({ preventScroll: true });
+  }
+}
+
+function submit(skip) {
+  const item = S.item;
+  let result, answer;
+
+  if (skip) {
+    result = { ok: false, id: 'blank' };
+    answer = '';
+  } else if (item.type === 'graph') {
+    if (S.pts.length < 2) return;
+    result = diagGraph(item, S.pts);
+    answer = S.pts.map(p => `(${p[0]},${p[1]})`).join(' ');
+  } else {
+    const raw = $('#ans').value;
+    const x = parseNum(raw);
+
+    if (x === null) {
+      S.inputErr = true;
+      render();
+      $('#ans').focus();
+      return;
+    }
+
+    result = diagSlope(item, x, raw.includes('.'));
+    answer = raw.trim();
+    S.lastInput = raw.trim();
+  }
+
+  S.session.log.push({
+    phase: S.phase,
+    n: S.phase === 'practice' ? S.pcount + 1 : S.idx + 1,
+    type: item.type,
+    tier: item.tier,
+    prompt: promptText(item),
+    answer,
+    correct: !!result.ok,
+    mistake: result.ok ? '' : result.id,
+    ms: Math.round(performance.now() - S.t0)
+  });
+  if (S.mode === 'guided') saveSession(S.session);
+
+  // practice shows feedback and stays on the problem
+  if (S.phase === 'practice') {
+    S.pcount++;
+    adapt(item.type, result.ok);
+    S.answered = result;
+    render();
+    $('#next')?.focus({ preventScroll: true });
+    return;
+  }
+
+  // checks move straight on, with no feedback
+  S.idx++;
+  if (S.idx < S.items.length) return startItem();
+
+  if (S.phase === 'pre') {
+    S.view = 'break1';
+    S.phase = 'practice';
+  } else {
+    S.session.done = true;
+    saveSession(S.session);
+    S.view = 'results';
+  }
+
+  render();
+  window.scrollTo(0, 0);
+}
+
+/** check 2 always uses whichever form check 1 did not */
+function goPost() {
+  S.phase = 'post';
+  S.items = FORMS[S.session.order[1]];
+  S.idx = 0;
+  S.view = 'break2';
+  render();
+  window.scrollTo(0, 0);
+}
+
+
+/* ===================================================================
+   7b. topic engine practice
+
+   open-ended practice on one engine topic. same rules as the graphing
+   practice: two right in a row moves up a level, two wrong moves
+   down, and a mistake made twice becomes the focus
+   =================================================================== */
+
+let TP = null;
+
+function startTopic(topic) {
+  TP = {
+    topic,
+    gen: ENGINE.topics[topic.id],
+    tier: 1,
+    streak: 0,
+    n: 0,
+    counts: {},
+    item: null,
+    answered: null,
+    pts: [],
+    cursor: null,
+    maxPts: 2,
+    choice: null,
+    raw: '',
+    inputErr: false
+  };
+  nextTopicItem();
+}
+
+function nextTopicItem() {
+  const best = Object.entries(TP.counts).sort((a, b) => b[1] - a[1])[0];
+  const focus = best && best[1] >= 2 ? best[0] : null;
+
+  // prefer a problem where the repeated mistake is possible again
+  let item = TP.gen(TP.tier);
+  if (focus) {
+    for (let i = 0; i < 40 && !item.cands.some(c => c.id === focus); i++) item = TP.gen(TP.tier);
+  }
+  item.targeted = focus && item.cands.some(c => c.id === focus) ? focus : null;
+
+  TP.item = item;
+  TP.answered = null;
+  TP.pts = [];
+  TP.cursor = null;
+  TP.maxPts = item.format === 'point' ? 1 : 2;
+  TP.choice = null;
+  TP.raw = '';
+  TP.inputErr = false;
+  render();
+
+  const box = $('#tans');
+  if (box && matchMedia('(pointer:fine)').matches) box.focus({ preventScroll: true });
+}
+
+// reads whatever the current format takes as input, or null if it is unusable
+function readTopicAnswer() {
+  const f = TP.item.format;
+  if (f === 'line') return TP.pts.length === 2 ? lineThrough(TP.pts) : null;
+  if (f === 'point') return TP.pts.length === 1 ? TP.pts[0] : null;
+  if (f === 'choice') return TP.choice;
+  TP.raw = $('#tans').value;
+  return ENGINE.parse(f, TP.raw);
+}
+
+function submitTopic() {
+  const value = readTopicAnswer();
+  if (value === null || value === undefined) {
+    if (TP.item.format !== 'line' && TP.item.format !== 'point' && TP.item.format !== 'choice') {
+      TP.inputErr = true;
+      render();
+      $('#tans').focus();
+    }
+    return;
+  }
+
+  const res = ENGINE.diagnose(TP.item, value);
+  TP.answered = res;
+  TP.value = value;
+  TP.n++;
+  if (!res.ok) TP.counts[res.id] = (TP.counts[res.id] || 0) + 1;
+
+  let s = TP.streak;
+  s = res.ok ? (s > 0 ? s + 1 : 1) : (s < 0 ? s - 1 : -1);
+  if (s >= 2) { TP.tier = Math.min(3, TP.tier + 1); s = 0; }
+  if (s <= -2) { TP.tier = Math.max(1, TP.tier - 1); s = 0; }
+  TP.streak = s;
+
+  render();
+  $('#tnext')?.focus({ preventScroll: true });
+}
+
+// the board while answering a graph topic, also used to redraw on hover
+function topicDraw(st) {
+  const item = st.item;
+  return boardSVG({
+    ...(item.board || {}),
+    id: 't',
+    pts: st.pts,
+    user: item.format === 'line' && st.pts.length === 2 ? lineThrough(st.pts) : null,
+    hover: st.cursor
+  });
+}
+
+
+/* ===================================================================
+   8. puzzle and tutor state
+   =================================================================== */
+
+let solved = loadSolved();
+let P = null;
+
+function openPuzzle(i) {
+  P = { idx: i, pts: [], cursor: null, result: null, attempts: 0, reveal: false };
+  render();
+}
+
+function checkPuzzle() {
+  if (P.pts.length < 2) return;
+
+  const pz = PUZZLES[P.idx];
+  const line = lineThrough(P.pts);
+  const ok = line.vx === undefined &&
+    near(line.m, val(pz.target.m)) &&
+    near(line.b, pz.target.b);
+
+  P.attempts++;
+  P.result = ok ? 'ok' : 'no';
+
+  if (ok) {
+    solved.add(pz.id);
+    saveSolved(solved);
+  }
+  render();
+}
+
+// tutor.js and peerjs load from separate files. either can be missing,
+// e.g. offline, and the rest of the app has to keep working
+const tutorAvailable = () => typeof tutor !== 'undefined' && typeof Peer !== 'undefined';
+
+let T = { role: null, status: 'idle', code: '', err: '', joinCode: '', formErr: '' };
+
+const roomReady = () => typeof Room !== 'undefined' && Room.available();
+
+function tutorStatus(status, info) {
+  // a status that arrives after leaving belongs to the old session
+  if (!T.role) return;
+  T.status = status;
+  if (status === 'waiting') T.code = info;
+  if (status === 'error') T.err = info || '';
+
+  // the session itself lives in room.js
+  if (roomReady()) {
+    if (status === 'connected') Room.open(T.role);
+    if (status === 'closed' || status === 'error') Room.close();
+  }
+  render();
+}
+
+function startHosting() {
+  if (!tutorAvailable()) return;
+  T = { ...T, role: 'tutor', status: 'starting', code: '', err: '', formErr: '' };
+  render();
+  tutor.host(tutorStatus);
+}
+
+function joinSession() {
+  if (!tutorAvailable()) return;
+  const code = T.joinCode.trim().toUpperCase();
+
+  if (!/^[A-Z0-9]{4}$/.test(code)) {
+    T.formErr = 'Enter the 4-letter code from your tutor.';
+    render();
+    return;
+  }
+
+  T = { ...T, role: 'student', status: 'joining', err: '', formErr: '' };
+  render();
+  tutor.join(code, tutorStatus);
+}
+
+function leaveTutor() {
+  if (roomReady()) Room.close();
+  T = { ...T, role: null, status: 'idle', code: '', err: '' };
+  if (tutorAvailable()) tutor.leave();
+  render();
+}
+
+function tutorError(type) {
+  if (type === 'peer-unavailable') return 'No session with that code. Check the code with your tutor.';
+  if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
+    return 'Couldn’t reach the connection server. Check your internet and try again.';
+  }
+  if (type === 'browser-incompatible') return 'This browser can’t make direct connections. Try Chrome, Safari, or Firefox.';
+  return 'Something went wrong' + (type ? ` (${escapeHTML(type)})` : '') + '. Try again.';
+}
+
+
+/* ===================================================================
+   9. views
+
+   each view returns an html string. render() swaps it in and rewires
+   the events. state lives in variables, never in the dom
+   =================================================================== */
+
+function render() {
+  if (tab === 'practice') S = guided;
+  else if (tab === 'topics') S = free;
+  if (!P) P = { idx: 0, pts: [], cursor: null, result: null, attempts: 0, reveal: false };
+
+  $('#tabs').innerHTML = TABS.map(([id, name]) =>
+    `<button class="tab" data-tab="${id}" ${id === tab ? 'aria-current="page"' : ''}>${name}</button>`
+  ).join('');
+
+  let html;
+  if (tab === 'home') html = vHome();
+  else if (tab === 'topics') html = free ? vItem() : TP ? vTopicItem() : vTopics();
+  else if (tab === 'practice') html = vPractice();
+  else if (tab === 'puzzles') html = vPuzzles();
+  else html = vTutor();
+
+  app.innerHTML = html;
+  wire();
+
+  // the session stays mounted on every tab and only shows on this one,
+  // so leaving the tab keeps the call going
+  if (roomReady()) Room.show(tab === 'tutor' && T.status === 'connected');
+}
+
+function vHome() {
+  const ready = ALL_TOPICS.filter(t => t.ready).length;
+  const demo = boardSVG({
+    id: 'h',
+    user: { m: 0.5, b: 1 },
+    pts: [[0, 1], [2, 2]],
+    bad: true,
+    explain: { p: [0, 1], q: [1, 3], emph: 'legs', startLabel: 'b = 1' },
+    aria: 'A wrong line with slope one half, then the correct steps for y = 2x + 1 drawn on top'
+  });
+
+  return `<section class="panel">
+    <span class="eyebrow">Algebra 1 · free · no account</span>
+    <h1>Algebra practice that tells you what went wrong.</h1>
+    <p class="lede">Draw a line or type an answer. When it's off, Slopewise names the mistake behind it, replays the right steps on the graph, and gives you more practice on that exact mistake.</p>
+    <div class="demo">
+      <div class="fb no">
+        <span class="eyebrow">Example</span>
+        <span>Asked to graph <span class="eq-inline">${eqHTML(frac(2), 1)}</span>, a student drew the red line.</span>
+        <strong>Flipped slope</strong>
+        <span>${MISTAKES.flip.tip}</span>
+        <span class="small"><button class="link" id="replay">Replay the steps</button></span>
+      </div>
+      <div class="board static">${demo}</div>
+    </div>
+    <div class="row">
+      <button class="btn" data-go="practice">Start practicing</button>
+      <button class="btn ghost" data-go="topics">Browse topics</button>
+    </div>
+  </section>
+
+  <div class="cards">
+    <button class="card" data-go="topics">
+      <b>Topics</b>
+      <span class="muted small">${ready} Algebra 1 topics across ${TOPICS.length} units, from one-step equations to the quadratic formula.</span>
+    </button>
+    <button class="card" data-go="practice">
+      <b>Practice & test</b>
+      <span class="muted small">A short check, practice that adapts to your mistakes, then a matched check to measure progress.</span>
+    </button>
+    <button class="card" data-go="puzzles">
+      <b>Puzzles</b>
+      <span class="muted small">${PUZZLES.length} graphing puzzles: parallel and perpendicular lines, and lines hidden in a set of points.</span>
+    </button>
+    <button class="card" data-go="tutor">
+      <b>Tutor mode</b>
+      <span class="muted small">A shared whiteboard, Desmos calculator, and video call, joined with a 4-letter code.</span>
+    </button>
+  </div>`;
+}
+
+function vTopics() {
+  const ready = ALL_TOPICS.filter(t => t.ready).length;
+
+  const card = t => t.ready
+    ? `<button class="topic" data-topic="${t.id}">
+        <span class="chip ready">Ready</span>
+        <b>${t.title}</b>
+        <span class="muted small">${t.blurb}</span>
+      </button>`
+    : `<div class="topic planned">
+        <span class="chip planned">Couldn't load</span>
+        <b>${t.title}</b>
+      </div>`;
+
+  const units = TOPICS.map(u => `<section class="unit">
+      <h3>${u.unit}</h3>
+      <div class="topic-grid">${u.items.map(card).join('')}</div>
+    </section>`).join('');
+
+  return `<section class="panel">
+      <span class="eyebrow">Topics</span>
+      <h2>Algebra 1</h2>
+      <p class="muted">${ready === ALL_TOPICS.length
+        ? `${ready} topics across ${TOPICS.length} units. Each one names the mistake behind a wrong answer and shows the steps.`
+        : `${ready} of ${ALL_TOPICS.length} topics loaded. The rest need the page to finish loading, so try reloading.`}</p>
+    </section>
+    ${units}`;
+}
+
+function vTopicItem() {
+  const item = TP.item;
+  const a = TP.answered;
+  const f = item.format;
+  const graphInput = f === 'line' || f === 'point';
+
+  const focusChip = item.targeted
+    ? `<span class="chip focus">Focus: ${MISTAKES[item.targeted].label}</span>`
+    : '';
+  const head = `<div class="item-head">
+      <span class="eyebrow">${TP.topic.title} · Problem ${TP.n + (a ? 0 : 1)}</span>
+      <span class="row">${focusChip}<span class="chip">Level ${item.tier}</span></span>
+    </div>`;
+
+  const prompt = `<p class="muted">${item.ask}</p>${item.eq ? `<div class="eq teq">${item.eq}</div>` : ''}`;
+
+  // the answer input depends on the format
+  let input = '';
+  if (f === 'choice') {
+    input = `<div class="choices">${item.choices.map((c, i) => {
+      let cls = '';
+      if (a && i === item.answer) cls = ' right';
+      else if (a && i === TP.choice) cls = ' wrong';
+      return `<button class="choice${cls}" data-choice="${i}" aria-pressed="${TP.choice === i}" ${a ? 'disabled' : ''}>${c}</button>`;
+    }).join('')}</div>`;
+  } else if (graphInput && !a) {
+    input = `<p class="muted small">${f === 'point'
+      ? 'Tap one point on the grid. Tap again to move it.'
+      : 'Tap two points on the line. Tap a point again to remove it.'}</p>`;
+  } else if (!graphInput && !a) {
+    input = `<input type="text" id="tans" class="wide" autocomplete="off" autocapitalize="off" spellcheck="false" ` +
+      `value="${escapeHTML(TP.raw)}" aria-label="Your answer" aria-describedby="thint">
+      <p class="small muted" id="thint">${item.hint}</p>
+      ${TP.inputErr ? `<p class="err" role="alert">That answer couldn't be read. ${item.hint}</p>` : ''}`;
+  }
+
+  const ready = f === 'line' ? TP.pts.length === 2
+    : f === 'point' ? TP.pts.length === 1
+    : f === 'choice' ? TP.choice !== null
+    : true;
+
+  const controls = a
+    ? `<div class="row">
+        <button class="btn" id="tnext">Next problem</button>
+        <button class="btn quiet" id="endtopic">Back to topics</button>
+      </div>`
+    : `<div class="row">
+        <button class="btn" id="tcheck" ${ready ? '' : 'disabled'}>Check answer</button>
+        ${graphInput ? '<button class="btn quiet" id="tclear">Clear</button>' : ''}
+        <button class="btn quiet" id="endtopic">Back to topics</button>
+      </div>`;
+
+  let fb = '';
+  let worked = '';
+  let board = '';
+  let below = '';
+
+  if (a) {
+    const typed = graphInput || f === 'choice' ? '' : `You wrote <b>${escapeHTML(TP.raw.trim())}</b>. `;
+    if (a.ok) {
+      fb = `<div class="fb ok" role="status"><strong>Correct.</strong><span>${item.answerHTML}</span></div>`;
+    } else {
+      const m = MISTAKES[a.id];
+      fb = `<div class="fb no" role="status"><strong>${m.label}</strong><span>${m.tip}</span>` +
+        `<span class="small">${typed}The answer is ${item.answerHTML}.</span></div>`;
+    }
+
+    worked = `<div class="sub">
+        <div class="row" style="justify-content:space-between"><h3>Steps</h3><button class="link" id="replay">Replay</button></div>
+        <ol class="worked">${item.steps.map((s, i) => `<li class="step" style="--i:${i}">${s}</li>`).join('')}</ol>
+      </div>`;
+
+    const vis = item.after ? item.after(a) : null;
+    if (vis && vis.board) {
+      const opts = { ...vis.board };
+      // show what the student did next to the replay
+      if (graphInput) {
+        opts.pts = TP.pts;
+        opts.bad = !a.ok;
+        opts.win = a.ok;
+        if (f === 'line') opts.user = lineThrough(TP.pts);
+      } else if (!a.ok && f === 'expr' && TP.value) {
+        const p = TP.value.p;
+        if (Object.keys(p).every(d => +d <= 1)) {
+          opts.user = { m: p[1] || 0, b: p[0] || 0 };
+          opts.bad = true;
+        }
+      }
+      board = `<div class="board static">${boardSVG(opts)}</div>`;
+    } else if (vis && vis.html) {
+      below = vis.html;
+    }
+  } else if (graphInput) {
+    board = `<div class="board" id="tboard" tabindex="0" aria-label="Graph. Use arrow keys to move, Enter to place a point.">${topicDraw(TP)}</div>`;
+  } else if (item.board) {
+    board = `<div class="board static">${boardSVG({ ...item.board, id: 't' })}</div>`;
+  }
+
+  return `<section class="panel">
+    ${head}
+    <div class="item-body ${board ? 'has-board' : ''}">
+      <div class="prompt">${prompt}${input}${controls}${fb}${below}</div>
+      ${board}
+    </div>
+    ${worked}
+  </section>`;
+}
+
+function vPractice() {
+  if (practicePage === 'log') return vLog();
+  if (!guided) return vStart();
+
+  const views = { item: vItem, break1: vBreak1, break2: vBreak2, results: vResults };
+  return stepsHTML() + views[guided.view]();
+}
+
+function stepsHTML() {
+  const names = ['Check 1', 'Practice', 'Check 2', 'Results'];
+  let at;
+
+  if (guided.view === 'results') at = 3;
+  else if (guided.phase === 'pre') at = 0;
+  else if (guided.phase === 'practice') at = 1;
+  else at = 2;
+
+  return `<ol class="steps">${names.map((n, i) =>
+    `<li class="${i === at ? 'on' : i < at ? 'done' : ''}">${n}</li>`).join('')}</ol>`;
+}
+
+function vStart() {
+  return `<section class="panel">
+    <span class="eyebrow">Practice & test</span>
+    <h2>A guided session with a before and after.</h2>
+    <p class="lede">Start with a short check, practice with feedback on every answer, then take a matched check to see what changed. Covers graphing lines and finding slope from two points.</p>
+    <div class="plan">
+      <div><b>Check 1</b><span class="muted small">7 questions, no hints. Shows where you start.</span></div>
+      <div><b>Practice</b><span class="muted small">At least ${PRACTICE_MIN} problems with feedback. Gets harder as you improve.</span></div>
+      <div><b>Check 2</b><span class="muted small">7 new questions at the same difficulty as Check 1.</span></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="go">Start</button>
+      <span class="muted small">About 20 to 30 minutes. No names and no account. Answers stay on this device.</span>
+    </div>
+  </section>
+  <p class="small muted">Running a test with students? <button class="link" id="openlog">Open the results log</button></p>`;
+}
+
+function headLine() {
+  if (S.mode === 'free') {
+    return `<span class="eyebrow">${S.topic} · Problem ${S.pcount + (S.answered ? 0 : 1)}</span>`;
+  }
+  if (S.phase === 'practice') {
+    return `<span class="eyebrow">Practice · Problem ${S.pcount + (S.answered ? 0 : 1)}</span>`;
+  }
+  const name = S.phase === 'pre' ? 'Check 1' : 'Check 2';
+  return `<span class="eyebrow">${name} · Question ${S.idx + 1} of ${S.items.length}</span>`;
+}
+
+function vItem() {
+  const item = S.item;
+  const answered = S.answered;
+  const practice = S.phase === 'practice';
+  const endFree = S.mode === 'free' ? '<button class="btn quiet" id="endfree">Back to topics</button>' : '';
+
+  // practice shows the current level, and the focus mistake if there is one
+  let chips = '';
+  if (practice) {
+    const focusChip = item.targeted
+      ? `<span class="chip focus">Focus: ${MISTAKES[item.targeted].label}</span>`
+      : '';
+    chips = `<span class="row">${focusChip}<span class="chip">Level ${item.tier}</span></span>`;
+  }
+
+  let prompt, board = '', feedbackHTML = '', controls;
+
+  if (item.type === 'graph') {
+    prompt = `<p class="muted">Graph this line.</p>
+      <div class="eq">${eqHTML(item.m, item.b)}</div>
+      <p class="muted small">Tap two points that are on the line. Tap a point again to remove it.</p>`;
+
+    if (answered) {
+      const kp = keyPoints(item);
+
+      board = boardSVG({
+        id: 'b',
+        user: lineThrough(S.pts),
+        pts: S.pts,
+        bad: !answered.ok,
+        win: answered.ok,
+        explain: answered.ok ? null : {
+          p: kp[0],
+          q: kp[1],
+          emph: EMPHASIS[answered.id],
+          startLabel: `b = ${neg(item.b)}`
+        }
+      });
+
+      const steps = answered.ok
+        ? ''
+        : `The graph replays the steps: start at (0, ${neg(item.b)}), rise ${neg(kp[1][1] - item.b)}, run ${neg(kp[1][0])}. <button class="link" id="replay">Replay</button>`;
+
+      feedbackHTML = feedback(answered, steps) + (answered.ok
+        ? ''
+        : `<div class="legend"><span class="lu bad">Your line</span><span class="lk">Correct steps</span></div>`);
+    } else {
+      board = itemDraw(S);
+    }
+
+    controls = answered
+      ? nextControls()
+      : `<div class="row">
+          <button class="btn" id="check" ${S.pts.length < 2 ? 'disabled' : ''}>${practice ? 'Check answer' : 'Submit'}</button>
+          <button class="btn quiet" id="clear">Clear</button>
+          ${practice ? '' : '<button class="btn quiet" id="skip">Skip</button>'}
+          ${endFree}
+        </div>`;
+  } else {
+    const [x1, y1] = item.p1;
+    const [x2, y2] = item.p2;
+
+    prompt = `<p class="muted">Find the slope of the line through these points.</p>
+      <div class="pts">(${neg(x1)}, ${neg(y1)}) and (${neg(x2)}, ${neg(y2)})</div>`;
+
+    if (answered) {
+      const correct = frac(y2 - y1, x2 - x1);
+
+      board = boardSVG({
+        id: 'b',
+        pts: [item.p1, item.p2],
+        explain: { p: item.p1, q: item.p2, emph: answered.ok ? null : EMPHASIS[answered.id] },
+        aria: 'The two points, with the rise and run drawn between them'
+      });
+
+      const work = `<span class="work">(${neg(y2)} − ${par(y1)}) ÷ (${neg(x2)} − ${par(x1)}) = ${neg(y2 - y1)} ÷ ${neg(x2 - x1)} = </span>` +
+        `<span class="eq" style="font-size:20px">${fracHTML(correct)}</span>`;
+
+      feedbackHTML = feedback(
+        answered,
+        `<span>You wrote <b>${escapeHTML(S.lastInput || '')}</b>. <button class="link" id="replay">Replay the steps</button></span>`,
+        work
+      );
+      controls = nextControls();
+    } else {
+      controls = `<div class="answer">
+          <label for="ans">m =</label>
+          <input type="text" id="ans" inputmode="text" autocomplete="off" placeholder="3/4" aria-describedby="anshint">
+          <button class="btn" id="check">${practice ? 'Check answer' : 'Submit'}</button>
+          ${practice ? '' : '<button class="btn quiet" id="skip">Skip</button>'}
+          ${endFree}
+        </div>
+        <p class="small muted" id="anshint">Type a whole number or a fraction, like −2 or 3/4.</p>
+        ${S.inputErr ? '<p class="err" role="alert">Enter a number like 2, −3, or 3/4.</p>' : ''}`;
+    }
+  }
+
+  const hasBoard = !!board;
+  const boardStatic = answered || item.type === 'slope' ? 'static' : '';
+  const boardKeys = !answered && item.type === 'graph'
+    ? 'tabindex="0" aria-label="Graph. Use arrow keys to move, Enter to place a point."'
+    : '';
+  const footer = practice && !answered && S.mode === 'guided'
+    ? `<p class="small muted">${S.pcount} of at least ${PRACTICE_MIN} practice problems done.</p>`
+    : '';
+
+  return `<section class="panel">
+    <div class="item-head">${headLine()}${chips}</div>
+    <div class="item-body ${hasBoard ? 'has-board' : ''}">
+      <div class="prompt">${prompt}${controls}${feedbackHTML}</div>
+      ${hasBoard ? `<div class="board ${boardStatic}" id="board" ${boardKeys}>${board}</div>` : ''}
+    </div>
+  </section>
+  ${footer}`;
+}
+
+// the question board before an answer, also used to redraw on hover
+function itemDraw(st) {
+  return boardSVG({
+    id: 'b',
+    pts: st.pts,
+    user: st.pts.length === 2 ? lineThrough(st.pts) : null,
+    hover: st.cursor
+  });
+}
+
+function feedback(result, extra, work) {
+  if (result.ok) {
+    return `<div class="fb ok" role="status">
+      <strong>Correct.</strong>${work ? `<div>${work}</div>` : ''}
+    </div>`;
+  }
+
+  const m = MISTAKES[result.id];
+  return `<div class="fb no" role="status">
+    <strong>${m.label}</strong>
+    <span>${m.tip}</span>
+    ${extra ? `<span class="small">${extra}</span>` : ''}
+    ${work ? `<div>${work}</div>` : ''}
+  </div>`;
+}
+
+function nextControls() {
+  if (S.mode === 'free') {
+    return `<div class="row">
+      <button class="btn" id="next">Next problem</button>
+      <button class="btn quiet" id="endfree">Back to topics</button>
+    </div>`;
+  }
+
+  const canFinish = S.pcount >= PRACTICE_MIN;
+  return `<div class="row">
+    <button class="btn" id="next">Next problem</button>
+    ${canFinish ? '<button class="btn ghost" id="topost">Go to Check 2</button>' : ''}
+  </div>`;
+}
+
+function vBreak1() {
+  return `<section class="panel">
+    <span class="eyebrow">Check 1 done</span>
+    <h2>Now practice.</h2>
+    <p class="lede">You'll get feedback after every problem. If you keep making the same mistake, Slopewise gives you more problems on it. Do at least ${PRACTICE_MIN}.</p>
+    <div class="row"><button class="btn" id="startpractice">Start practice</button></div>
+  </section>`;
+}
+
+function vBreak2() {
+  return `<section class="panel">
+    <span class="eyebrow">Practice done</span>
+    <h2>Last part: Check 2.</h2>
+    <p class="lede">Seven new questions, matched to Check 1. No hints, like before.</p>
+    <div class="row"><button class="btn" id="startpost">Start Check 2</button></div>
+  </section>`;
+}
+
+function vResults() {
+  const s = S.session;
+  const pre = score(s, 'pre');
+  const post = score(s, 'post');
+  const delta = post.right - pre.right;
+
+  const practice = s.log.filter(e => e.phase === 'practice');
+  const practiceRight = practice.filter(e => e.correct).length;
+
+  // mistake tally for the bar chart
+  const counts = {};
+  for (const e of practice) {
+    if (e.correct || e.mistake === 'blank') continue;
+    counts[e.mistake] = (counts[e.mistake] || 0) + 1;
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const max = sorted[0]?.[1] || 1;
+
+  // position i in check 1 and check 2 test the same skill
+  const pairs = SKILL.map((skill, i) => {
+    const a = pre.list[i];
+    const b = post.list[i];
+    return `<span>${skill}</span>
+      <span class="mark ${a?.correct ? 'y' : 'n'}">${a?.correct ? '✓' : '✗'}</span>
+      <span class="mark ${b?.correct ? 'y' : 'n'}">${b?.correct ? '✓' : '✗'}</span>`;
+  }).join('');
+
+  const minutes = Math.round(s.log.reduce((total, e) => total + e.ms, 0) / 60000);
+  const deltaColor = delta > 0 ? '--good' : delta < 0 ? '--bad' : '--ink';
+  const deltaSign = delta > 0 ? '+' : delta < 0 ? '−' : '';
+
+  return `<section class="panel">
+    <span class="eyebrow">Session ${s.id}</span>
+    <h2>Your results</h2>
+    <div class="scores">
+      <div class="score"><span class="muted small">Check 1</span><b>${pre.right}/${pre.n}</b></div>
+      <div class="score"><span class="muted small">Check 2</span><b>${post.right}/${post.n}</b></div>
+      <div class="score"><span class="muted small">Change</span><b style="color:var(${deltaColor})">${deltaSign}${Math.abs(delta)}</b></div>
+    </div>
+    <div class="pair">
+      <span class="h">Skill</span>
+      <span class="h" style="text-align:center">Check 1</span>
+      <span class="h" style="text-align:center">Check 2</span>
+      ${pairs}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Practice</h2>
+    <p>${practice.length} problems, ${practiceRight} correct (${practice.length ? Math.round(100 * practiceRight / practice.length) : 0}%). About ${minutes} minute${minutes === 1 ? '' : 's'} total.</p>
+    ${sorted.length ? `<p class="muted small">Mistakes during practice</p>
+      <div class="bars">${sorted.map(([id, n]) => `<div class="bar">
+        <span>${MISTAKES[id].label}</span>
+        <span><i style="width:${(100 * n / max).toFixed(0)}%"></i></span>
+        <span>${n}</span>
+      </div>`).join('')}</div>` : '<p class="muted">No mistakes during practice.</p>'}
+  </section>
+
+  <section class="panel">
+    <h2>Save this session</h2>
+    <p class="muted small">If someone is running a test, copy the results and send them over. They're also saved in this device's results log.</p>
+    <div class="row">
+      <button class="btn" id="copyone">Copy results</button>
+      <button class="btn ghost" id="again">Start a new session</button>
+      <button class="btn quiet" id="openlog">Results log</button>
+    </div>
+    ${copyBox}
+  </section>`;
+}
+
+function vLog() {
+  const all = loadAll();
+  const done = all.filter(s => s.done);
+
+  const mean = f => (done.length
+    ? (done.reduce((total, s) => total + f(s), 0) / done.length).toFixed(1)
+    : '–');
+
+  const rows = all.slice().reverse().map(s => {
+    const pre = score(s, 'pre');
+    const post = score(s, 'post');
+    const practice = s.log.filter(e => e.phase === 'practice');
+
+    const counts = {};
+    for (const e of practice) {
+      if (e.correct || e.mistake === 'blank') continue;
+      counts[e.mistake] = (counts[e.mistake] || 0) + 1;
+    }
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+
+    return `<tr>
+      <td>${s.id}</td>
+      <td>${new Date(s.started).toLocaleDateString()}</td>
+      <td>${s.order[0]} → ${s.order[1]}</td>
+      <td>${pre.right}/${pre.n}</td>
+      <td>${s.done ? post.right + '/' + post.n : 'not finished'}</td>
+      <td>${practice.length}</td>
+      <td>${top ? MISTAKES[top[0]].label + ' (' + top[1] + ')' : '–'}</td>
+    </tr>`;
+  }).join('');
+
+  return `<section class="panel">
+    <span class="eyebrow">For the organizer</span>
+    <h2>Results log</h2>
+    <p class="muted small">Every guided session run on this device. Each student gets Form A or Form B first at random, so a harder form can't fake an improvement.</p>
+    <div class="scores">
+      <div class="score"><span class="muted small">Finished sessions</span><b>${done.length}</b></div>
+      <div class="score"><span class="muted small">Avg Check 1</span><b>${mean(s => score(s, 'pre').right)}</b></div>
+      <div class="score"><span class="muted small">Avg Check 2</span><b>${mean(s => score(s, 'post').right)}</b></div>
+    </div>
+    ${all.length ? `<div class="tablewrap"><table>
+      <thead><tr>
+        <th>Session</th><th>Date</th><th>Forms</th>
+        <th>Check 1</th><th>Check 2</th><th>Practice</th><th>Top mistake</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>` : '<p class="muted">No sessions yet. They appear here after a student starts.</p>'}
+    <div class="row">
+      <button class="btn" id="copyall" ${all.length ? '' : 'disabled'}>Copy all as CSV</button>
+      <button class="btn quiet" id="back">Back</button>
+      ${all.length ? `<button class="btn quiet" id="clearlog">${confirmClear ? `Tap again to delete ${all.length} session${all.length === 1 ? '' : 's'}` : 'Clear log'}</button>` : ''}
+    </div>
+    ${copyBox}
+  </section>`;
+}
+
+// the puzzle board, also used to redraw on hover
+function puzzleDraw(st) {
+  const pz = PUZZLES[st.idx];
+  const kp = keyPoints(pz.target);
+
+  return boardSVG({
+    id: 'p',
+    given: pz.given ? { m: val(pz.given.m), b: pz.given.b } : null,
+    stars: pz.stars || [],
+    pts: st.pts,
+    user: st.pts.length === 2 ? lineThrough(st.pts) : null,
+    bad: st.result === 'no',
+    win: st.result === 'ok',
+    hover: st.cursor,
+    explain: st.reveal ? { p: kp[0], q: kp[1], startLabel: `b = ${neg(pz.target.b)}` } : null,
+    aria: 'Puzzle graph'
+  });
+}
+
+function vPuzzles() {
+  const pz = PUZZLES[P.idx];
+  const done = P.result === 'ok';
+  const locked = done || P.reveal;
+  const solvedCount = PUZZLES.filter(q => solved.has(q.id)).length;
+
+  const chips = PUZZLES.map((q, i) => {
+    const isSolved = solved.has(q.id);
+    return `<button class="pchip ${isSolved ? 'solved' : ''}" data-puzzle="${i}" aria-current="${i === P.idx}" ` +
+      `aria-label="Puzzle ${i + 1}${isSolved ? ', solved' : ''}">${i + 1}</button>`;
+  }).join('');
+
+  let fb = '';
+  if (done) {
+    fb = `<div class="fb ok" role="status"><strong>Solved.</strong><span>${P.attempts === 1 ? 'First try.' : `Solved in ${P.attempts} tries.`}</span></div>`;
+  } else if (P.result === 'no') {
+    fb = `<div class="fb no" role="status"><strong>Not that line.</strong><span>${pz.hint}</span></div>`;
+  }
+  if (P.reveal) {
+    fb += `<div class="fb ok" role="status"><strong>One way to draw it</strong>` +
+      `<span>Start where the line crosses the y-axis, then rise and run to the next point. <button class="link" id="replay">Replay</button></span></div>`;
+  }
+
+  const controls = locked
+    ? `<div class="row"><button class="btn" id="pnext">Next puzzle</button></div>`
+    : `<div class="row">
+        <button class="btn" id="pcheck" ${P.pts.length < 2 ? 'disabled' : ''}>Check</button>
+        <button class="btn quiet" id="pclear">Clear</button>
+        ${P.attempts >= 2 ? '<button class="btn quiet" id="preveal">Show solution</button>' : ''}
+      </div>`;
+
+  return `<section class="panel">
+    <div class="item-head">
+      <span class="eyebrow">Puzzle ${P.idx + 1} of ${PUZZLES.length}</span>
+      <span class="chip">${solvedCount} of ${PUZZLES.length} solved</span>
+    </div>
+    <div class="pchips" role="group" aria-label="Choose a puzzle">${chips}</div>
+    <div class="item-body has-board">
+      <div class="prompt">
+        <h2>${pz.title}</h2>
+        <p>${pz.prompt}</p>
+        <p class="muted small">Tap two points on your line.</p>
+        ${controls}${fb}
+      </div>
+      <div class="board ${locked ? 'static' : ''}" id="pboard" ${locked ? '' : 'tabindex="0" aria-label="Puzzle graph. Use arrow keys to move, Enter to place a point."'}>${puzzleDraw(P)}</div>
+    </div>
+  </section>`;
+}
+
+function vTutor() {
+  const intro = `<span class="eyebrow">Tutor mode</span>
+    <h2>Work on the same problem together.</h2>
+    <p class="lede">Share a whiteboard, a graphing calculator, video, and chat. The tutor starts a session and reads out a 4-letter code, and the student types it in. Everything goes straight between the two browsers, and nothing is saved.</p>`;
+
+  if (!tutorAvailable()) {
+    return `<section class="panel">${intro}
+      <div class="fb no"><strong>Tutor mode couldn't load</strong>
+        <span>It needs an internet connection to set up. Check your connection and reload the page.</span></div>
+    </section>`;
+  }
+
+  let body;
+
+  if (!T.role) {
+    body = `<div class="split">
+      <div class="sub">
+        <h3>I'm the tutor</h3>
+        <p class="muted small">Start a session and get a code to share.</p>
+        <div class="row"><button class="btn" id="host">Start a session</button></div>
+      </div>
+      <div class="sub">
+        <h3>I'm the student</h3>
+        <p class="muted small">Type the code your tutor gives you.</p>
+        <div class="answer">
+          <label for="joincode">Code</label>
+          <input type="text" id="joincode" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="AB7K" value="${escapeHTML(T.joinCode)}">
+          <button class="btn" id="join">Join</button>
+        </div>
+        ${T.formErr ? `<p class="err" role="alert">${T.formErr}</p>` : ''}
+      </div>
+    </div>`;
+  } else if (T.status === 'starting' || T.status === 'joining') {
+    body = `<p class="status wait">${T.role === 'tutor' ? 'Starting a session' : 'Connecting'}</p>
+      <div class="row"><button class="btn quiet" id="leave">Cancel</button></div>`;
+  } else if (T.status === 'waiting') {
+    body = `<p class="status wait">Waiting for the student</p>
+      <div class="code" aria-label="Session code">${T.code}</div>
+      <p class="muted">Read this code to your student. It only works while this page stays open.</p>
+      <div class="row"><button class="btn quiet" id="leave">Cancel</button></div>`;
+  } else if (T.status === 'connected') {
+    body = `<div class="row" style="justify-content:space-between">
+        <p class="status live">Connected to your ${T.role === 'tutor' ? 'student' : 'tutor'}</p>
+        <button class="btn quiet" id="leave">Leave session</button>
+      </div>
+      ${roomReady()
+        ? '<p class="muted small">Draw, drop in a photo of a worksheet, or open the calculator. Both of you see the same board. Video starts when you press the camera button.</p>'
+        : '<p class="err">The whiteboard couldn’t load. Reload the page and reconnect.</p>'}`;
+    return `<section class="panel">${body}</section>`;
+  } else if (T.status === 'closed') {
+    body = `<p class="status err">The other person left</p>
+      <div class="row"><button class="btn" id="leave">Start over</button></div>`;
+  } else {
+    body = `<p class="status err">${tutorError(T.err)}</p>
+      <div class="row"><button class="btn" id="leave">Try again</button></div>`;
+  }
+
+  return `<section class="panel">${intro}${body}</section>`;
+}
+
+
+/* ===================================================================
+   10. event wiring
+
+   render() replaces the markup, so handlers are attached fresh each
+   time rather than delegated
+   =================================================================== */
+
+function go(next) {
+  if (location.hash.slice(1) !== next) {
+    location.hash = next;   // the hashchange listener renders
+  } else {
+    tab = next;
+    render();
+  }
+  window.scrollTo(0, 0);
+}
+
+/** copies text, falling back to a selectable textarea where the clipboard is blocked */
+function copyText(text, buttonId) {
+  copyBox = `<textarea id="copyout" readonly aria-label="Results as CSV">${escapeHTML(text)}</textarea>`;
+
+  const finish = ok => {
+    render();
+    const button = $('#' + buttonId);
+    if (button) button.textContent = ok ? 'Copied' : 'Select the text below and copy it';
+    if (!ok) {
+      const area = $('#copyout');
+      area.focus();
+      area.select();
+    }
+  };
+
+  try {
+    navigator.clipboard.writeText(text).then(() => finish(true), () => finish(false));
+  } catch (e) {
+    finish(false);
+  }
+}
+
+/** tapping an existing point removes it, a third tap starts over */
+function tapPoint(st, p) {
+  const i = st.pts.findIndex(q => q[0] === p[0] && q[1] === p[1]);
+
+  if (i >= 0) st.pts.splice(i, 1);
+  else if (st.pts.length < (st.maxPts || 2)) st.pts.push(p);
+  else st.pts = [p];
+
+  // a puzzle marked wrong goes back to editable once the student moves a point
+  if ('result' in st) st.result = null;
+  render();
+}
+
+/**
+ * pointer and keyboard input for an interactive board
+ * st holds pts and cursor, draw(st) returns the board svg
+ */
+function attachBoard(board, st, draw) {
+  // screen coordinates to grid coordinates, snapped and clamped
+  const toGrid = e => {
+    const svg = board.querySelector('svg');
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+
+    const c = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const clamp = v => Math.max(-N, Math.min(N, Math.round(v))) || 0;
+    return [clamp(c.x), clamp(-c.y)];
+  };
+
+  board.onpointerup = e => {
+    if (e.button === 0) {
+      st.cursor = null;
+      tapPoint(st, toGrid(e));
+    }
+  };
+
+  // ghost dot under the mouse. redraws the svg directly rather than
+  // calling render(), which would rebuild the page on every move
+  board.onpointermove = e => {
+    if (e.pointerType !== 'mouse') return;
+
+    const p = toGrid(e);
+    if (st.cursor && st.cursor[0] === p[0] && st.cursor[1] === p[1]) return;
+
+    st.cursor = p;
+    board.innerHTML = draw(st);
+  };
+
+  board.onpointerleave = () => {
+    st.cursor = null;
+    board.innerHTML = draw(st);
+  };
+
+  board.onkeydown = e => {
+    const move = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, 1],
+      ArrowDown: [0, -1]
+    }[e.key];
+
+    if (move) {
+      e.preventDefault();
+      const c = st.cursor || [0, 0];
+      st.cursor = [
+        Math.max(-N, Math.min(N, c[0] + move[0])),
+        Math.max(-N, Math.min(N, c[1] + move[1]))
+      ];
+      render();
+      $('#' + board.id).focus();
+    } else if ((e.key === 'Enter' || e.key === ' ') && st.cursor) {
+      e.preventDefault();
+      tapPoint(st, st.cursor);
+      $('#' + board.id).focus();
+    }
+  };
+}
+
+function wire() {
+  const on = (id, handler) => {
+    const el = $('#' + id);
+    if (el) el.onclick = handler;
+  };
+  const each = (selector, handler) => {
+    document.querySelectorAll(selector).forEach(el => {
+      el.onclick = () => handler(el);
+    });
+  };
+
+  // navigation
+  each('[data-tab]', el => go(el.dataset.tab));
+  each('[data-go]', el => go(el.dataset.go));
+  each('[data-topic]', el => startFree(el.dataset.topic));
+  each('[data-puzzle]', el => openPuzzle(+el.dataset.puzzle));
+
+  // replaying an animation is just drawing the board again
+  on('replay', () => render());
+
+  // guided session
+  on('go', () => { copyBox = ''; newSession(); });
+  on('openlog', () => { copyBox = ''; confirmClear = false; practicePage = 'log'; render(); });
+  on('back', () => { copyBox = ''; practicePage = 'main'; render(); });
+  on('startpractice', startItem);
+  on('startpost', startItem);
+  on('topost', goPost);
+  on('again', () => { copyBox = ''; newSession(); });
+
+  // question screen, shared by guided and free practice
+  on('check', () => submit(false));
+  on('skip', () => submit(true));
+  on('clear', () => { S.pts = []; render(); });
+  on('next', startItem);
+  on('endfree', () => { free = null; render(); });
+
+  // results
+  on('copyone', () => copyText(toCSV([S.session]), 'copyone'));
+  on('copyall', () => copyText(toCSV(loadAll()), 'copyall'));
+  on('clearlog', () => {
+    if (confirmClear) {
+      clearAll();
+      confirmClear = false;
+      copyBox = '';
+    } else {
+      confirmClear = true;
+    }
+    render();
+  });
+
+  // puzzles
+  on('pcheck', checkPuzzle);
+  on('pclear', () => { P.pts = []; P.result = null; render(); });
+  on('preveal', () => { P.reveal = true; render(); });
+  on('pnext', () => openPuzzle((P.idx + 1) % PUZZLES.length));
+
+  // topic engine practice
+  on('tcheck', submitTopic);
+  on('tnext', nextTopicItem);
+  on('tclear', () => { TP.pts = []; render(); });
+  on('endtopic', () => { TP = null; render(); });
+  each('[data-choice]', el => {
+    if (TP && !TP.answered) {
+      TP.choice = +el.dataset.choice;
+      render();
+    }
+  });
+
+  const tans = $('#tans');
+  if (tans) {
+    tans.oninput = () => { TP.raw = tans.value; };
+    tans.onkeydown = e => { if (e.key === 'Enter') submitTopic(); };
+  }
+
+  // tutor
+  on('host', startHosting);
+  on('join', joinSession);
+  on('leave', leaveTutor);
+
+  const joinInput = $('#joincode');
+  if (joinInput) {
+    joinInput.oninput = () => { T.joinCode = joinInput.value.toUpperCase(); };
+    joinInput.onkeydown = e => { if (e.key === 'Enter') joinSession(); };
+  }
+
+  const ans = $('#ans');
+  if (ans) {
+    ans.onkeydown = e => {
+      if (e.key === 'Enter') submit(false);
+    };
+  }
+
+  // interactive boards
+  const board = $('#board');
+  if (board && S && S.view === 'item' && S.item.type === 'graph' && !S.answered) {
+    attachBoard(board, S, itemDraw);
+  }
+
+  const pboard = $('#pboard');
+  if (pboard && P.result !== 'ok' && !P.reveal) {
+    attachBoard(pboard, P, puzzleDraw);
+  }
+
+  const tboard = $('#tboard');
+  if (tboard && TP && !TP.answered) {
+    attachBoard(tboard, TP, topicDraw);
+  }
+}
+
+window.addEventListener('hashchange', () => {
+  const next = location.hash.slice(1);
+  if (TABS.some(t => t[0] === next)) {
+    tab = next;
+    render();
+  }
+});
+
+if (typeof Room !== 'undefined') Room.init();
+
+const startTab = location.hash.slice(1);
+tab = TABS.some(t => t[0] === startTab) ? startTab : 'home';
+render();
+</script>
+</body>
+</html>
