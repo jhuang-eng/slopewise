@@ -548,12 +548,12 @@ const ENGINE = (() => {
   });
 
   const HINT = {
-    num: 'Type a number. Fractions like 3/4 work.',
+    num: 'Type a number. Typing / stacks a fraction, like 3/4.',
     list: 'Type every answer, separated by commas, like 2, −5.',
     pair: 'Type the point as (x, y), like (2, −1).',
     ineq: 'Type it like x > 3 or x <= −2.',
     compound: 'Type it like −2 < x <= 3.',
-    expr: 'Type ^ for a power: x^2 turns into x² as you type.',
+    expr: 'Type ^ for a power and / for a fraction. Arrow keys move in and out of them.',
     linear: 'Type it like y = 2x − 3. Fractions like 1/2x work.',
     factored: 'Type the factors, like (x + 2)(x − 5).'
   };

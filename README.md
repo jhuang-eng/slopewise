@@ -1,12 +1,10 @@
 # Slopewise
 
-A web app that teaches graphing linear equations by naming the specific mistake a student made. Runs in any browser, stores no personal data.
+A web app that teaches Algebra 1. Stores no personal information and runs anywhere
 
-Built for 8th graders working on Algebra 1.
+## Problem
 
-## The problem
-
-Most math practice tools tell a student that an answer is wrong and show the correct one. That does not tell the student what went wrong in their head. A student who graphs `y = 2x + 1` with a slope of 1/2 made a specific, nameable error: they read rise over run backwards. A student who starts the line at `(2, 0)` instead of `(0, 1)` put the intercept on the wrong axis. These are different problems and need different corrections.
+Most math practice tools tell a student that an answer is wrong and show the correct one. Unfortunately, it does not tell the student what went wrong in their head. Slopewise was created to improve math education for American middle schoolers by providing direct feedback and named mistakes on problems.
 
 ## How the diagnosis works
 
@@ -37,26 +35,15 @@ For slope from two points, it builds candidate values for:
 
 Candidates that coincide with the correct answer are dropped before matching, so the app never reports a mistake for a correct answer. See `graphCands`, `slopeCands`, `diagGraph`, and `diagSlope` in `index.html`.
 
-## Targeted practice
-
-When the same mistake appears twice during practice, the app sets it as the focus and generates problems where that mistake is reachable, about 75% of the time, until the student stops making it. Difficulty moves on a streak: two right in a row raises the tier, two wrong lowers it. Tiers run from integer slopes, to negative slopes, to fractional slopes.
-
-## Measuring whether it works
-
-The session runs as pre-check, practice, post-check.
-
-- Check 1 and Check 2 are two fixed 7-question forms, A and B, matched position by position on skill and difficulty.
-- Which form comes first is randomized per session, so a harder form cannot fake an improvement.
-- No feedback is shown during either check.
-- Every answer is logged with the problem, the response, the diagnosed mistake, and time taken. Exports as CSV.
-
 ## Puzzles
 
-`puzzles.js` holds 72 original puzzles in 7 sets: lines, systems, inequalities and absolute value, quadratics, exponents and sequences, functions, and word problems. Each one names the idea it is built on and has a worked solution that opens once it is solved, or after two wrong tries. Answers are drawn on the grid, picked from choices, or typed and checked with the same parsers the topics use, so `3x + 2`, `2 + 3x`, and `f(x) = 3x + 2` all count. Solved puzzles are remembered in the browser.
+`puzzles.js` holds 72 advanced Algebra problems that encourage students to look deeper into Algebra and extend their curiosity. Ranging from specific conceptual nuances to genuinely useful Algebraic tricks, these problems are curated to inspire students love for mathematics.
 
-## Running it
+## Running Slopewise
 
-Open `index.html` in a browser. No build step, no dependencies
+Open `index.html` in a browser, or go to the vercel page
+
+https://slopewise.vercel.app/
 
 # AI Usage
 
@@ -64,4 +51,6 @@ This project was assisted by Anthropic's Opus model.
 
 ## Privacy
 
-No accounts, no names, no analytics. Session results are kept in the browser's own storage on the device that ran them and are never transmitted. The CSV export is manual and local.
+No information stored. Session results are kept in the browser's own storage
+
+

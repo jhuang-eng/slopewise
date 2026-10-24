@@ -32,9 +32,8 @@ const Room = (() => {
   const COLORS = ['--ink', '--accent', '--bad', '--good'];
   const COLOR_NAMES = ['Black', 'Blue', 'Red', 'Green'];
 
-  // desmos's public demo key. it works, but desmos asks that a real
-  // product request its own key. swap it here once you have one
-  const DESMOS_KEY = 'dcb31709b452b1cf9dc26972add0fda6';
+  // desmos project key
+  const DESMOS_KEY = '0e6f04459882447d90f5b2ea8da3a0f3';
   const DESMOS_SRC = `https://www.desmos.com/api/v1.9/calculator.js?apiKey=${DESMOS_KEY}`;
 
   let el = null;

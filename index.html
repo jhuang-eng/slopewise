@@ -152,6 +152,16 @@ header {
   height: 22px;
 }
 
+/* the page still scrolls with a wheel, trackpad, or finger, it just
+   doesn't show the bar down the right edge */
+html {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
 /* the tab row scrolls sideways on a phone instead of wrapping */
 .tabs {
   display: flex;
@@ -554,6 +564,151 @@ input[type="text"] {
 
 .math {
   font-weight: 600;
+}
+
+/* ===================================================================
+   math answer box (mathbox.js)
+   looks like a text box, but draws fractions stacked and exponents raised
+   =================================================================== */
+
+.mbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 8ch;
+  min-height: 52px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font: 600 22px var(--f-mono);
+  cursor: text;
+  overflow: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mbox.wide {
+  width: min(100%, 22ch);
+}
+
+.mbox.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* the real text box is invisible; it only collects key presses */
+.mbox .min {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: 0;
+  padding: 0;
+  font-size: 16px;
+  caret-color: transparent;
+  pointer-events: none;
+}
+
+.mview {
+  display: inline-block;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* inside the box, a long answer scrolls sideways with the cursor,
+   but never shows a scrollbar */
+.mbox .mview {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  padding: 0.3em 0;
+}
+
+.mbox .mview::-webkit-scrollbar {
+  display: none;
+}
+
+.mop {
+  padding: 0 0.25em;
+}
+
+.msup {
+  display: inline-block;
+  font-size: 0.65em;
+  vertical-align: 0.75em;
+  padding-left: 1px;
+}
+
+.mfrac {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 2px;
+  font-size: 0.8em;
+}
+
+.mnum,
+.mden {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1ch;
+  padding: 0 3px;
+}
+
+.mnum {
+  border-bottom: 2px solid currentColor;
+  padding-bottom: 1px;
+}
+
+.mden {
+  padding-top: 1px;
+}
+
+/* a slot that is still empty */
+.mempty {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.9em;
+  border: 1px dashed var(--muted);
+  border-radius: 2px;
+}
+
+.mph {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.mcaret {
+  display: none;
+  vertical-align: middle;
+  width: 2px;
+  height: 1.1em;
+  margin: 0 -1px;
+  background: var(--accent);
+  animation: mblink 1s steps(1) infinite;
+}
+
+.mbox.on .mcaret {
+  display: inline-block;
+}
+
+@keyframes mblink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mcaret { animation: none; }
+}
+
+/* the same drawing, inline in "you wrote" */
+.math .mview {
+  vertical-align: middle;
 }
 
 .math sup {
@@ -1038,8 +1193,9 @@ input.wide {
   margin: 0 0 6px;
 }
 
-/* a curve drawn on a puzzle board, as a path rather than a line */
-path.gv {
+/* a curve drawn on a board, as a path rather than a line */
+path.gv,
+path.ul {
   fill: none;
 }
 
@@ -1533,6 +1689,8 @@ textarea {
 <script src="topics.js"></script>
 <!-- the tutor session: whiteboard, calculator, video, chat -->
 <script src="room.js"></script>
+<!-- the math answer box: stacked fractions and raised exponents -->
+<script src="mathbox.js"></script>
 <!-- the puzzle library -->
 <script src="puzzles.js"></script>
 
@@ -1644,62 +1802,6 @@ function escapeHTML(s) {
  * x^2 as a raised 2, <= as ≤, - as a real minus, * as a dot, and a
  * plain number over a number as a stacked fraction
  */
-// superscript characters a plain text box can show
-const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '-': '⁻' };
-const SUP_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
-
-/**
- * what a typed answer turns into inside the box: ^2 becomes ², a digit
- * right after a raised digit is raised too (so ^10 becomes ¹⁰), and
- * <= and >= become ≤ and ≥. a lone ^ stays until a digit follows it.
- * the parsers in topics.js read the raised characters back as powers
- */
-function prettyTyped(s) {
-  s = s.replace(/<=|=</g, '≤').replace(/>=|=>/g, '≥')
-    .replace(/\^\s*(-?\d)/g, (_, d) => [...d].map(c => SUP[c]).join(''));
-  let prev;
-  do {
-    prev = s;
-    s = s.replace(new RegExp(`([${SUP_DIGITS}])(\\d)`, 'g'), (_, a, d) => a + SUP[d]);
-  } while (s !== prev);
-  return s;
-}
-
-// rewrites the box as the student types, keeping the cursor in place
-function prettyInput(el, onChange) {
-  const tidy = () => {
-    const v = el.value;
-    const pos = el.selectionStart;
-    const next = prettyTyped(v);
-    if (next !== v) {
-      const at = prettyTyped(v.slice(0, pos)).length;
-      el.value = next;
-      el.setSelectionRange(at, at);
-    }
-    onChange(el.value);
-  };
-  // phone keyboards compose words before committing them, so wait for that
-  el.oninput = e => { if (!e.isComposing) tidy(); };
-  el.addEventListener('compositionend', tidy);
-}
-
-function mathHTML(raw) {
-  let t = String(raw).trim()
-    .replace(/<=|=</g, '≤')
-    .replace(/>=|=>/g, '≥')
-    .replace(/!=/g, '≠');
-  t = escapeHTML(t)
-    // powers: x^2, x^-1, x^(n+1), x^n, also with a space after the caret
-    .replace(/\^\s*\(([^()]*)\)/g, '<sup>$1</sup>')
-    .replace(/\^\s*(-?\d+(?:\.\d+)?|[a-z])/gi, '<sup>$1</sup>')
-    // number/number as a stacked fraction, so 1/2x reads as ½x like the parser does,
-    // but 2x/3 stays as typed
-    .replace(/(^|[^\w.)])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![\d.(^])/g,
-      '$1<span class="frac"><span>$2</span><span>$3</span></span>')
-    .replace(/\*/g, '·')
-    .replace(/-/g, '−');
-  return t;
-}
 
 
 /* ===================================================================
@@ -2374,12 +2476,12 @@ const PUZZLES = PUZZLE_SETS.flatMap((s, si) =>
 );
 
 const PUZZLE_HINT = {
-  num: 'Type a number. Fractions like 3/4 work.',
+  num: 'Type a number. Typing / stacks a fraction, like 3/4.',
   list: 'Type every answer, separated by commas, like 2, −5.',
   pair: 'Type the point as (x, y), like (2, −1).',
   ineq: 'Type it like x > 3 or x <= −2.',
   compound: 'Type it like −2 < x <= 3.',
-  expr: 'Type ^ for a power: x^2 turns into x² as you type.'
+  expr: 'Type ^ for a power and / for a fraction. Arrow keys move in and out of them.'
 };
 
 // a graph y = f(x) as an svg path, cut off well past the grid
@@ -2542,6 +2644,7 @@ function startItem() {
   S.answered = null;
   S.inputErr = false;
   S.lastInput = '';
+  S.mx = MathBox.create();
   S.t0 = performance.now();
   S.view = 'item';
 
@@ -2549,9 +2652,9 @@ function startItem() {
 
   // focus the answer box on a desktop, but never on a phone, where it
   // would throw up the keyboard over the graph
-  const target = $('#ans') || $('#board');
-  if (target && matchMedia('(pointer:fine)').matches) {
-    target.focus({ preventScroll: true });
+  if (matchMedia('(pointer:fine)').matches) {
+    if ($('#ans')) MathBox.focus($('#ans'), { preventScroll: true });
+    else $('#board')?.focus({ preventScroll: true });
   }
 }
 
@@ -2567,13 +2670,13 @@ function submit(skip) {
     result = diagGraph(item, S.pts);
     answer = S.pts.map(p => `(${p[0]},${p[1]})`).join(' ');
   } else {
-    const raw = $('#ans').value;
+    const raw = MathBox.text(S.mx);
     const x = parseNum(raw);
 
     if (x === null) {
       S.inputErr = true;
       render();
-      $('#ans').focus();
+      MathBox.focus($('#ans'));
       return;
     }
 
@@ -2681,11 +2784,12 @@ function nextTopicItem() {
   TP.maxPts = item.format === 'point' ? 1 : 2;
   TP.choice = null;
   TP.raw = '';
+  TP.mx = MathBox.create();
   TP.inputErr = false;
   render();
 
   const box = $('#tans');
-  if (box && matchMedia('(pointer:fine)').matches) box.focus({ preventScroll: true });
+  if (box && matchMedia('(pointer:fine)').matches) MathBox.focus(box, { preventScroll: true });
 }
 
 // reads whatever the current format takes as input, or null if it is unusable
@@ -2694,7 +2798,7 @@ function readTopicAnswer() {
   if (f === 'line') return TP.pts.length === 2 ? lineThrough(TP.pts) : null;
   if (f === 'point') return TP.pts.length === 1 ? TP.pts[0] : null;
   if (f === 'choice') return TP.choice;
-  TP.raw = $('#tans').value;
+  TP.raw = MathBox.text(TP.mx);
   return ENGINE.parse(f, TP.raw);
 }
 
@@ -2704,7 +2808,7 @@ function submitTopic() {
     if (TP.item.format !== 'line' && TP.item.format !== 'point' && TP.item.format !== 'choice') {
       TP.inputErr = true;
       render();
-      $('#tans').focus();
+      MathBox.focus($('#tans'));
     }
     return;
   }
@@ -2747,7 +2851,7 @@ let P = null;
 
 const newPuzzleState = i => ({
   idx: i, pts: [], cursor: null, result: null, attempts: 0, reveal: false,
-  raw: '', choice: null, inputErr: false,
+  raw: '', mx: MathBox.create(), choice: null, inputErr: false,
   maxPts: PUZZLES[i] && PUZZLES[i].kind === 'point' ? 1 : 2
 });
 
@@ -2755,7 +2859,7 @@ function openPuzzle(i) {
   P = newPuzzleState(i);
   render();
   const box = $('#pans');
-  if (box && matchMedia('(pointer:fine)').matches) box.focus({ preventScroll: true });
+  if (box && matchMedia('(pointer:fine)').matches) MathBox.focus(box, { preventScroll: true });
 }
 
 // jumping to a set opens its first unsolved puzzle
@@ -2795,13 +2899,12 @@ function checkPuzzle() {
     if (P.choice === null) return;
     ok = P.choice === pz.answer;
   } else {
-    const box = $('#pans');
-    if (box) P.raw = box.value;
+    P.raw = MathBox.text(P.mx);
     const value = readPuzzleTyped(pz.kind, P.raw);
     if (value === null || value === undefined) {
       P.inputErr = true;
       render();
-      $('#pans')?.focus();
+      MathBox.focus($('#pans'));
       return;
     }
     ok = samePuzzleAnswer(pz.kind, value, readPuzzleTyped(pz.kind, pz.answer));
@@ -2888,10 +2991,14 @@ function tutorError(type) {
    the events. state lives in variables, never in the dom
    =================================================================== */
 
+let lastTab = null;
+
 function render() {
   if (tab === 'practice') S = guided;
   else if (tab === 'topics') S = free;
   if (!P) P = newPuzzleState(0);
+  if (tab === 'home' && lastTab !== 'home') homeDemo = null;
+  lastTab = tab;
 
   $('#tabs').innerHTML = TABS.map(([id, name]) =>
     `<button class="tab" data-tab="${id}" ${id === tab ? 'aria-current="page"' : ''}>${name}</button>`
@@ -2912,16 +3019,81 @@ function render() {
   if (roomReady()) Room.show(tab === 'tutor' && T.status === 'connected');
 }
 
+/**
+ * the worked example on the home page: one common mistake on a random
+ * line or parabola, picked fresh each time the home page opens. the red
+ * graph is what a student drew, the green one is drawn step by step
+ */
+let homeDemo = null;
+
+function makeHomeDemo() {
+  const pick = list => list[Math.floor(Math.random() * list.length)];
+  const nonzero = n => pick([...Array(2 * n + 1).keys()].map(i => i - n).filter(v => v));
+
+  const kinds = ['flip', 'sign', 'bsign', 'origin'];
+  if (engineReady) kinds.push('par_hsign', 'par_ksign');
+  const kind = pick(kinds);
+
+  // parabolas in vertex form, with the vertex read off wrong
+  if (kind.startsWith('par')) {
+    const h = nonzero(3);
+    const k = nonzero(3);
+    const wrong = kind === 'par_hsign' ? [-h, k] : [h, -k];
+    const m = ENGINE.mistakes[kind];
+    return {
+      eq: `y = (x ${h > 0 ? '−' : '+'} ${Math.abs(h)})<sup>2</sup> ${k > 0 ? '+' : '−'} ${Math.abs(k)}`,
+      shape: 'parabola',
+      label: m.label,
+      tip: m.tip,
+      board: {
+        paths: [
+          { d: curvePath(x => (x - wrong[0]) ** 2 + wrong[1]), cls: 'ul bad' },
+          { d: curvePath(x => (x - h) ** 2 + k), cls: 'ex-line draw', i: 1 }
+        ],
+        dots: [
+          { p: wrong, cls: 'pt bad', r: 0.23 },
+          { p: [h, k], cls: 'ex-ring step', r: 0.55, i: 0 },
+          { p: [h, k], cls: 'ex-pt step', r: 0.24, i: 0 }
+        ],
+        aria: `A wrong parabola with its vertex at (${wrong[0]}, ${wrong[1]}), then the correct one with its vertex at (${h}, ${k})`
+      }
+    };
+  }
+
+  // lines: a slope and intercept that keep both graphs on the grid
+  let m;
+  do {
+    m = frac(nonzero(3), pick([1, 1, 2, 3]));
+  } while (kind === 'flip' && Math.abs(m.n) === m.d);
+  const b = nonzero(3);
+
+  const wrong = {
+    flip: { m: frac(Math.sign(m.n) * m.d, Math.abs(m.n)), b },
+    sign: { m: frac(-m.n, m.d), b },
+    bsign: { m, b: -b },
+    origin: { m, b: 0 }
+  }[kind];
+
+  const [p, q] = keyPoints({ m, b });
+  return {
+    eq: eqHTML(m, b),
+    shape: 'line',
+    label: MISTAKES[kind].label,
+    tip: MISTAKES[kind].tip,
+    board: {
+      user: { m: val(wrong.m), b: wrong.b },
+      pts: keyPoints(wrong),
+      bad: true,
+      explain: { p, q, emph: EMPHASIS[kind], startLabel: `b = ${neg(b)}` },
+      aria: 'A wrong line, then the correct steps drawn on top'
+    }
+  };
+}
+
 function vHome() {
   const ready = ALL_TOPICS.filter(t => t.ready).length;
-  const demo = boardSVG({
-    id: 'h',
-    user: { m: 0.5, b: 1 },
-    pts: [[0, 1], [2, 2]],
-    bad: true,
-    explain: { p: [0, 1], q: [1, 3], emph: 'legs', startLabel: 'b = 1' },
-    aria: 'A wrong line with slope one half, then the correct steps for y = 2x + 1 drawn on top'
-  });
+  if (!homeDemo) homeDemo = makeHomeDemo();
+  const demo = boardSVG({ id: 'h', ...homeDemo.board });
 
   return `<section class="panel">
     <span class="eyebrow">Algebra 1 · free · no account</span>
@@ -2930,10 +3102,10 @@ function vHome() {
     <div class="demo">
       <div class="fb no">
         <span class="eyebrow">Example</span>
-        <span>Asked to graph <span class="eq-inline">${eqHTML(frac(2), 1)}</span>, a student drew the red line.</span>
-        <strong>Flipped slope</strong>
-        <span>${MISTAKES.flip.tip}</span>
-        <span class="small"><button class="link" id="replay">Replay the steps</button></span>
+        <span>Asked to graph <span class="eq-inline">${homeDemo.eq}</span>, a student drew the red ${homeDemo.shape}.</span>
+        <strong>${homeDemo.label}</strong>
+        <span>${homeDemo.tip}</span>
+        <span class="small row"><button class="link" id="replay">Replay the steps</button><button class="link" id="newdemo">Another example</button></span>
       </div>
       <div class="board static">${demo}</div>
     </div>
@@ -3022,8 +3194,7 @@ function vTopicItem() {
       ? 'Tap one point on the grid. Tap again to move it.'
       : 'Tap two points on the line. Tap a point again to remove it.'}</p>`;
   } else if (!graphInput && !a) {
-    input = `<input type="text" id="tans" class="wide" autocomplete="off" autocapitalize="off" spellcheck="false" ` +
-      `value="${escapeHTML(TP.raw)}" aria-label="Your answer" aria-describedby="thint">
+    input = `<div id="tans" class="wide"></div>
       <p class="small muted" id="thint">${item.hint}</p>
       ${TP.inputErr ? `<p class="err" role="alert">That answer couldn't be read. ${item.hint}</p>` : ''}`;
   }
@@ -3050,7 +3221,7 @@ function vTopicItem() {
   let below = '';
 
   if (a) {
-    const typed = graphInput || f === 'choice' ? '' : `You wrote <b class="math">${mathHTML(TP.raw)}</b>. `;
+    const typed = graphInput || f === 'choice' ? '' : `You wrote <b class="math">${MathBox.html(TP.mx)}</b>. `;
     if (a.ok) {
       fb = `<div class="fb ok" role="status"><strong>Correct.</strong><span>${item.answerHTML}</span></div>`;
     } else {
@@ -3233,19 +3404,19 @@ function vItem() {
 
       feedbackHTML = feedback(
         answered,
-        `<span>You wrote <b class="math">${mathHTML(S.lastInput || '')}</b>. <button class="link" id="replay">Replay the steps</button></span>`,
+        `<span>You wrote <b class="math">${MathBox.html(S.mx)}</b>. <button class="link" id="replay">Replay the steps</button></span>`,
         work
       );
       controls = nextControls();
     } else {
       controls = `<div class="answer">
-          <label for="ans">m =</label>
-          <input type="text" id="ans" inputmode="text" autocomplete="off" placeholder="3/4" aria-describedby="anshint">
+          <label>m =</label>
+          <div id="ans"></div>
           <button class="btn" id="check">${practice ? 'Check answer' : 'Submit'}</button>
           ${practice ? '' : '<button class="btn quiet" id="skip">Skip</button>'}
           ${endFree}
         </div>
-        <p class="small muted" id="anshint">Type a whole number or a fraction, like −2 or 3/4.</p>
+        <p class="small muted" id="anshint">Type a whole number or a fraction, like −2 or 3/4. Typing / stacks the fraction.</p>
         ${S.inputErr ? '<p class="err" role="alert">Enter a number like 2, −3, or 3/4.</p>' : ''}`;
     }
   }
@@ -3543,8 +3714,7 @@ function vPuzzles() {
       ? 'Tap one point on the grid. Tap again to move it.'
       : 'Tap two points on your line. Tap a point again to remove it.'}</p>`;
   } else if (typed && !locked) {
-    input = `<input type="text" id="pans" class="wide" autocomplete="off" autocapitalize="off" spellcheck="false" ` +
-      `value="${escapeHTML(P.raw)}" aria-label="Your answer" aria-describedby="phint">
+    input = `<div id="pans" class="wide"></div>
       <p class="small muted" id="phint">${PUZZLE_HINT[pz.kind]}</p>
       ${P.inputErr ? `<p class="err" role="alert">That answer couldn't be read. ${PUZZLE_HINT[pz.kind]}</p>` : ''}`;
   }
@@ -3575,7 +3745,7 @@ function vPuzzles() {
   } else if (P.reveal) {
     fb = `<div class="fb ok" role="status"><strong>Solution</strong><span>${pz.show ? `The answer is ${pz.show}.` : pz.kind === 'point' ? `The point is (${neg(pz.answer[0])}, ${neg(pz.answer[1])}), circled on the grid.` : 'The correct line is drawn on the grid.'}</span></div>`;
   } else if (P.result === 'no') {
-    const typedNote = typed ? `You wrote <b class="math">${mathHTML(P.raw)}</b>. ` : '';
+    const typedNote = typed ? `You wrote <b class="math">${MathBox.html(P.mx)}</b>. ` : '';
     fb = `<div class="fb no" role="status"><strong>Not yet.</strong><span>${typedNote}${pz.hint}</span></div>`;
   }
 
@@ -3803,6 +3973,7 @@ function wire() {
 
   // replaying an animation is just drawing the board again
   on('replay', () => render());
+  on('newdemo', () => { homeDemo = makeHomeDemo(); render(); });
 
   // guided session
   on('go', () => { copyBox = ''; newSession(); });
@@ -3848,10 +4019,8 @@ function wire() {
   });
 
   const pans = $('#pans');
-  if (pans) {
-    prettyInput(pans, v => { P.raw = v; });
-    // preventDefault stops the same Enter from clicking the button that gets focus next
-    pans.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); checkPuzzle(); } };
+  if (pans && P && P.mx) {
+    MathBox.mount(pans, P.mx, { onChange: v => { P.raw = v; }, onEnter: checkPuzzle, describedby: 'phint' });
   }
 
   // topic engine practice
@@ -3867,9 +4036,8 @@ function wire() {
   });
 
   const tans = $('#tans');
-  if (tans) {
-    prettyInput(tans, v => { TP.raw = v; });
-    tans.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submitTopic(); } };
+  if (tans && TP && TP.mx) {
+    MathBox.mount(tans, TP.mx, { onChange: v => { TP.raw = v; }, onEnter: submitTopic, describedby: 'thint' });
   }
 
   // tutor
@@ -3884,10 +4052,8 @@ function wire() {
   }
 
   const ans = $('#ans');
-  if (ans) {
-    ans.onkeydown = e => {
-      if (e.key === 'Enter') { e.preventDefault(); submit(false); }
-    };
+  if (ans && S && S.mx) {
+    MathBox.mount(ans, S.mx, { onEnter: () => submit(false), label: 'Slope', describedby: 'anshint', placeholder: '3/4' });
   }
 
   // interactive boards

@@ -1,7 +1,7 @@
 /* mathbox.js
    a small math answer box. typing / stacks a fraction, ^ raises an
    exponent, and the arrow keys move in and out of both, the way a
-   graphing calculator's input works. 
+   graphing calculator's input works.
 
    the answer is kept as a tree:
      row  = { items: [...], up: null or { row, node } }
@@ -366,6 +366,14 @@ const MathBox = (() => {
       const ph = isEmpty(st) && document.activeElement !== input && opts.placeholder
         ? `<span class="mph">${opts.placeholder}</span>` : '';
       view.innerHTML = body + ph;
+      // a long answer scrolls sideways, so keep the cursor in sight
+      const caret = view.querySelector('.mcaret');
+      if (caret) {
+        const box = view.getBoundingClientRect();
+        const c = caret.getBoundingClientRect();
+        if (c.right > box.right - 4) view.scrollLeft += c.right - box.right + 4;
+        if (c.left < box.left + 4) view.scrollLeft -= box.left + 4 - c.left;
+      }
       // screen readers hear the plain-text answer
       input.setAttribute('aria-valuetext', text(st));
       input.title = text(st);
