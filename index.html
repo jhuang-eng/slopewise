@@ -2979,6 +2979,7 @@ function tutorError(type) {
   if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
     return 'Couldn’t reach the connection server. Check your internet and try again.';
   }
+  if (type === 'timeout') return 'Couldn’t connect. Your networks may block direct connections. Try again, or switch one of you to a phone hotspot.';
   if (type === 'browser-incompatible') return 'This browser can’t make direct connections. Try Chrome, Safari, or Firefox.';
   return 'Something went wrong' + (type ? ` (${escapeHTML(type)})` : '') + '. Try again.';
 }

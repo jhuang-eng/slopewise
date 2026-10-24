@@ -26,6 +26,13 @@
 const tutor = (() => {
   const PREFIX = 'slopewise-';
   const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0, O, 1, I, L
+  const CONNECT_MS = 15000;
+
+  // relay servers for networks that block direct connections.
+  // paste the turn entries from your metered.ca dashboard here.
+  // left empty, peerjs uses its own default servers
+  const ICE_SERVERS = [];
+  const PEER_OPTS = ICE_SERVERS.length ? { config: { iceServers: ICE_SERVERS } } : {};
   const handlers = {};
   const calls = new Set();
   let peer = null;
@@ -34,6 +41,7 @@ const tutor = (() => {
   let report = () => {};
   let onStream = () => {};
   let onStreamEnd = () => {};
+  let connectTimer = null;
 
   function makeCode() {
     let code = '';
@@ -47,7 +55,10 @@ const tutor = (() => {
   function wire(c) {
     conn = c;
     remoteId = c.peer;
-    c.on('open', () => report('connected'));
+    c.on('open', () => {
+      clearTimeout(connectTimer);
+      report('connected');
+    });
     c.on('data', msg => {
       // anything arriving here is untrusted, so check its shape first
       if (!msg || typeof msg.type !== 'string') return;
@@ -81,7 +92,7 @@ const tutor = (() => {
     leave();
     report = onStatus;
     const code = makeCode();
-    peer = new Peer(PREFIX + code);
+    peer = new Peer(PREFIX + code, PEER_OPTS);
     listen();
 
     peer.on('open', () => report('waiting', code));
@@ -108,15 +119,23 @@ const tutor = (() => {
   function join(code, onStatus) {
     leave();
     report = onStatus;
-    peer = new Peer();
+    peer = new Peer(PEER_OPTS);
     listen();
+
+    // if the link never opens, say so instead of hanging on connecting
+    connectTimer = setTimeout(() => {
+      if (!conn || !conn.open) report('error', 'timeout');
+    }, CONNECT_MS);
 
     peer.on('open', () => {
       wire(peer.connect(PREFIX + code.trim().toUpperCase(), { reliable: true }));
     });
 
     // a wrong code shows up here as 'peer-unavailable'
-    peer.on('error', err => report('error', err.type));
+    peer.on('error', err => {
+      clearTimeout(connectTimer);
+      report('error', err.type);
+    });
   }
 
   // type goes last so a payload can never overwrite it
@@ -145,7 +164,10 @@ const tutor = (() => {
   }
 
   function leave() {
-    for (const call of calls) call.close();
+    clearTimeout(connectTimer);
+git add tutor.js index.html room.js
+git commit -m "Tutor mode connect timeout, relay server slot, Desmos key"
+git push    for (const call of calls) call.close();
     calls.clear();
     if (conn) conn.close();
     if (peer) peer.destroy();

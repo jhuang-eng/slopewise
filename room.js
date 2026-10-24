@@ -41,10 +41,10 @@ const Room = (() => {
   let role = null;
   let active = false;
 
-  let items = [];              // strokes and images, in draw order
+  let items = [];              // strokes and images in order
   const byId = new Map();
-  const images = new Map();    // id -> decoded image, ready to draw
-  const mine = [];             // ids made on this side, newest last, for undo
+  const images = new Map();    // id -> decoded image, u can draw on it
+  const mine = [];             // ids made on this side
   let tool = 'pen';
   let color = 0;
   let drawing = null;
