@@ -165,9 +165,7 @@ const tutor = (() => {
 
   function leave() {
     clearTimeout(connectTimer);
-git add tutor.js index.html room.js
-git commit -m "Tutor mode connect timeout, relay server slot, Desmos key"
-git push    for (const call of calls) call.close();
+    for (const call of calls) call.close();
     calls.clear();
     if (conn) conn.close();
     if (peer) peer.destroy();
