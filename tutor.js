@@ -31,7 +31,14 @@ const tutor = (() => {
   // relay servers for networks that block direct connections.
   // paste the turn entries from your metered.ca dashboard here.
   // left empty, peerjs uses its own default servers
-  const ICE_SERVERS = [];
+  const ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    { urls: 'turn:global.relay.metered.ca:80', username: '99ae2315d3469834fb6ac142', credential: 'IcvRdvNFF7CLJ4gn' },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '99ae2315d3469834fb6ac142', credential: 'IcvRdvNFF7CLJ4gn' },
+    { urls: 'turn:global.relay.metered.ca:443', username: '99ae2315d3469834fb6ac142', credential: 'IcvRdvNFF7CLJ4gn' },
+    { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '99ae2315d3469834fb6ac142', credential: 'IcvRdvNFF7CLJ4gn' }
+  ];
   const PEER_OPTS = ICE_SERVERS.length ? { config: { iceServers: ICE_SERVERS } } : {};
   const handlers = {};
   const calls = new Set();
